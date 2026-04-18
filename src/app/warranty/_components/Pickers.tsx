@@ -406,7 +406,7 @@ export function DatePicker({
                   <button type="button" className="dp-title-btn" onClick={() => setPanel(panel === "months" ? "days" : "months")}>
                     <span className="dp-title-month">{MONTHS[month]}</span>
                   </button>
-                  <button type="button" className="dp-title-btn dp-title-btn--year" onClick={() => setPanel(panel === "years" ? "days" : "years")}>
+                  <button type="button" className="dp-title-btn dp-title-btn--year" onClick={() => setPanel("years")}>
                     {year}
                   </button>
                 </>
