@@ -413,15 +413,68 @@ body {
   padding: 0.25rem 0.25rem 0.65rem;
 }
 .dp-title {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.dp-title-btn {
   font-family: var(--font-orbitron), sans-serif;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-size: 12px;
+  font-size: 11px;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.35rem;
+  border-radius: 3px;
+  transition: color 160ms ease, background 160ms ease;
+  line-height: 1;
+}
+.dp-title-btn:hover {
+  color: var(--cyan-3);
+  background: var(--bg-2);
+}
+.dp-title-btn--year {
+  color: var(--cyan-3);
+}
+.dp-title-btn--year:hover {
+  color: var(--cyan-2);
+}
+.dp-month-grid,
+.dp-year-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.25rem;
+  padding: 0.25rem 0 0.5rem;
+}
+.dp-month-btn,
+.dp-year-btn {
+  font-family: var(--font-orbitron), sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.25rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.dp-month-btn:hover,
+.dp-year-btn:hover {
+  background: var(--bg-2);
+  border-color: var(--rule);
   color: var(--ink);
 }
-.dp-year {
-  color: var(--cyan-3);
+.dp-month-btn.is-selected,
+.dp-year-btn.is-selected {
+  background: var(--cyan);
+  border-color: var(--cyan);
+  color: #fff;
 }
 .dp-nav {
   width: 1.85rem;

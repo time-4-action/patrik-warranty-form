@@ -36,11 +36,6 @@ export default function WarrantyPage() {
           <h1 className="font-display mb-5 text-[32px] font-bold uppercase tracking-[0.18em] text-ink md:text-[42px]">
             Warranty Request
           </h1>
-          <div className="mx-auto flex items-center justify-center gap-3">
-            <span className="block h-px w-24 bg-rule-2" />
-            <span className="block h-2 w-2 rotate-45 bg-cyan" />
-            <span className="block h-px w-24 bg-rule-2" />
-          </div>
         </div>
 
         {/* Notice paragraphs */}

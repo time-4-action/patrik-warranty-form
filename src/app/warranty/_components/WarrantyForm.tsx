@@ -416,19 +416,42 @@ export function WarrantyForm() {
                     status={confirmStatus}
                 />
                 <Field id="phone" label="Phone" type="tel" />
+                <CustomSelect
+                    id="typeOfPartner"
+                    label="Type of partner"
+                    options={PARTNER_TYPES}
+                    required
+                />
                 <AddressAutocomplete id="address" label="Address" required colSpan="md:col-span-2" />
+            </div>
+
+            <SectionHeading>Purchase Details</SectionHeading>
+            <div className="grid gap-x-10 gap-y-2 md:grid-cols-2">
+                <Field id="invoiceNumber" label="Invoice number" required />
+                <DatePicker
+                    id="dateOfPurchase"
+                    label="Date of purchase"
+                    required
+                    value={purchaseDate}
+                    onChange={(d) => {
+                        setPurchaseDate(d);
+                        if (failureDate && d && failureDate < d) setFailureDate(null);
+                    }}
+                    max={today}
+                />
+                <Field
+                    id="invoiceIssuedBy"
+                    label="Invoice issued by (shop/partner etc.)"
+                    required
+                    colSpan="md:col-span-2"
+                />
                 <CustomSelect
                     id="countryOfPurchase"
                     label="Country of purchase"
                     options={COUNTRIES}
                     required
                     searchable
-                />
-                <CustomSelect
-                    id="typeOfPartner"
-                    label="Type of partner"
-                    options={PARTNER_TYPES}
-                    required
+                    colSpan="md:col-span-2"
                 />
             </div>
 
@@ -451,18 +474,6 @@ export function WarrantyForm() {
                     onChange={setProductCategory}
                 />
                 <Field id="serialNumber" label="Serial number" required />
-                <Field id="invoiceNumber" label="Invoice number" required />
-                <DatePicker
-                    id="dateOfPurchase"
-                    label="Date of purchase"
-                    required
-                    value={purchaseDate}
-                    onChange={(d) => {
-                        setPurchaseDate(d);
-                        if (failureDate && d && failureDate < d) setFailureDate(null);
-                    }}
-                    max={today}
-                />
                 <DatePicker
                     id="dateOfFailure"
                     label="Date of product failure"
@@ -471,12 +482,6 @@ export function WarrantyForm() {
                     onChange={setFailureDate}
                     min={purchaseDate ?? undefined}
                     max={today}
-                />
-                <Field
-                    id="invoiceIssuedBy"
-                    label="Invoice issued by (shop/partner etc.)"
-                    required
-                    colSpan="md:col-span-2"
                 />
 
                 <div

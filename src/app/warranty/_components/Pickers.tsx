@@ -280,8 +280,9 @@ export function DatePicker({
   const [open, setOpen] = useState(false);
   const [internal, setInternal] = useState<Date | null>(null);
   const [view, setView] = useState<Date>(() => new Date());
+  const [panel, setPanel] = useState<"days" | "months" | "years">("days");
   const ref = useRef<HTMLDivElement>(null);
-  useClickOutside(ref, () => setOpen(false), open);
+  useClickOutside(ref, () => { setOpen(false); setPanel("days"); }, open);
 
   const controlled = value !== undefined;
   const current = controlled ? (value ?? null) : internal;
@@ -311,8 +312,23 @@ export function DatePicker({
     onChange?.(d);
   };
 
-  const goPrev = () => setView(new Date(year, month - 1, 1));
-  const goNext = () => setView(new Date(year, month + 1, 1));
+  const goPrev = () => {
+    if (panel === "years") setView(new Date(year - 12, month, 1));
+    else if (panel === "months") setView(new Date(year - 1, month, 1));
+    else setView(new Date(year, month - 1, 1));
+  };
+  const goNext = () => {
+    if (panel === "years") setView(new Date(year + 12, month, 1));
+    else if (panel === "months") setView(new Date(year + 1, month, 1));
+    else setView(new Date(year, month + 1, 1));
+  };
+
+  const minYear = minD ? minD.getFullYear() : 1980;
+  const maxYear = maxD ? maxD.getFullYear() : today.getFullYear();
+  const yearBlockStart = Math.max(minYear, year - 11);
+  const yearBlock = Array.from({ length: 12 }, (_, i) => yearBlockStart + i).filter(
+    (y) => y >= minYear && y <= maxYear
+  );
 
   return (
     <div
@@ -330,6 +346,7 @@ export function DatePicker({
         onClick={() => {
           if (!open && current) setView(new Date(current));
           setOpen((o) => !o);
+          setPanel("days");
         }}
       >
         <span className={current ? "cs-value" : "cs-placeholder"}>
@@ -374,85 +391,106 @@ export function DatePicker({
       {open && (
         <div className="dp-menu" role="dialog" aria-label="Choose date">
           <div className="dp-header">
-            <button
-              type="button"
-              className="dp-nav"
-              onClick={goPrev}
-              aria-label="Previous month"
-            >
+            <button type="button" className="dp-nav" onClick={goPrev} aria-label="Previous">
               <svg viewBox="0 0 20 20" fill="none" aria-hidden>
-                <path
-                  d="M12 5l-5 5 5 5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <path d="M12 5l-5 5 5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
-            <span className="dp-title">
-              {MONTHS[month]} <span className="dp-year">{year}</span>
-            </span>
-            <button
-              type="button"
-              className="dp-nav"
-              onClick={goNext}
-              aria-label="Next month"
-            >
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden>
-                <path
-                  d="M8 5l5 5-5 5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <div className="dp-weekdays">
-            {WEEKDAYS.map((d) => (
-              <span key={d}>{d}</span>
-            ))}
-          </div>
-
-          <div className="dp-grid">
-            {cells.map((c, i) => {
-              if (c === null) return <span key={i} className="dp-cell" />;
-              const cellDate = new Date(year, month, c);
-              const isToday = sameDay(cellDate, today);
-              const isSelected = current ? sameDay(cellDate, current) : false;
-              const disabled = isOutOfRange(cellDate);
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  disabled={disabled}
-                  className={`dp-day ${isSelected ? "is-selected" : ""} ${
-                    isToday ? "is-today" : ""
-                  } ${disabled ? "is-disabled" : ""}`}
-                  onClick={() => {
-                    setValue(cellDate);
-                    setOpen(false);
-                  }}
-                >
-                  {c}
+            <div className="dp-title">
+              {panel === "years" ? (
+                <button type="button" className="dp-title-btn" onClick={() => setPanel("days")}>
+                  {yearBlock[0]}–{yearBlock[yearBlock.length - 1]}
                 </button>
-              );
-            })}
+              ) : (
+                <>
+                  <button type="button" className="dp-title-btn" onClick={() => setPanel(panel === "months" ? "days" : "months")}>
+                    <span className="dp-title-month">{MONTHS[month]}</span>
+                  </button>
+                  <button type="button" className="dp-title-btn dp-title-btn--year" onClick={() => setPanel(panel === "years" ? "days" : "years")}>
+                    {year}
+                  </button>
+                </>
+              )}
+            </div>
+            <button type="button" className="dp-nav" onClick={goNext} aria-label="Next">
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden>
+                <path d="M8 5l5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </div>
+
+          {panel === "months" && (
+            <div className="dp-month-grid">
+              {MONTHS.map((m, i) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`dp-month-btn ${i === month ? "is-selected" : ""}`}
+                  onClick={() => { setView(new Date(year, i, 1)); setPanel("days"); }}
+                >
+                  {m.slice(0, 3)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {panel === "years" && (
+            <div className="dp-year-grid">
+              {yearBlock.map((y) => (
+                <button
+                  key={y}
+                  type="button"
+                  className={`dp-year-btn ${y === year ? "is-selected" : ""}`}
+                  onClick={() => { setView(new Date(y, month, 1)); setPanel("months"); }}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {panel === "days" && (
+            <>
+              <div className="dp-weekdays">
+                {WEEKDAYS.map((d) => (
+                  <span key={d}>{d}</span>
+                ))}
+              </div>
+
+              <div className="dp-grid">
+                {cells.map((c, i) => {
+                  if (c === null) return <span key={i} className="dp-cell" />;
+                  const cellDate = new Date(year, month, c);
+                  const isToday = sameDay(cellDate, today);
+                  const isSelected = current ? sameDay(cellDate, current) : false;
+                  const disabled = isOutOfRange(cellDate);
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      disabled={disabled}
+                      className={`dp-day ${isSelected ? "is-selected" : ""} ${isToday ? "is-today" : ""} ${disabled ? "is-disabled" : ""}`}
+                      onClick={() => { setValue(cellDate); setOpen(false); setPanel("days"); }}
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           <div className="dp-foot">
             <button
               type="button"
               className="dp-foot-btn"
-              disabled={isOutOfRange(today)}
+              disabled={isOutOfRange(startOfDay(today))}
               onClick={() => {
-                if (isOutOfRange(today)) return;
+                if (isOutOfRange(startOfDay(today))) return;
                 setValue(today);
                 setView(today);
                 setOpen(false);
+                setPanel("days");
               }}
             >
               Today
