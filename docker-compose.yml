@@ -9,7 +9,7 @@ services:
     container_name: patrik-warranty-form
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "4000:3000"
     env_file:
       - .env.local
     environment:
