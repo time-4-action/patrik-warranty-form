@@ -373,6 +373,7 @@ export function WarrantyForm() {
     const [typeOfPartner, setTypeOfPartner] = useState("");
     const [countryOfPurchase, setCountryOfPurchase] = useState("");
     const [dataPolicyAccepted, setDataPolicyAccepted] = useState(false);
+    const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
     const [textFields, setTextFields] = useState({
         name: "",
@@ -456,10 +457,50 @@ export function WarrantyForm() {
         allFilesPresent &&
         dataPolicyAccepted;
 
+    const missingFields = (): { id: string; label: string }[] => {
+        const m: { id: string; label: string }[] = [];
+        if (!textFields.name) m.push({ id: "name", label: "Name" });
+        if (!textFields.surname) m.push({ id: "surname", label: "Surname" });
+        if (!emailOk) m.push({ id: "email", label: "Email" });
+        if (!typeOfPartner) m.push({ id: "typeOfPartner", label: "Type of partner" });
+        if (!textFields.address) m.push({ id: "address", label: "Address" });
+        if (!textFields.invoiceNumber) m.push({ id: "invoiceNumber", label: "Invoice number" });
+        if (!purchaseDate) m.push({ id: "dateOfPurchase", label: "Date of purchase" });
+        if (!textFields.invoiceIssuedBy) m.push({ id: "invoiceIssuedBy", label: "Invoice issued by" });
+        if (!countryOfPurchase) m.push({ id: "countryOfPurchase", label: "Country of purchase" });
+        if (!textFields.productName) m.push({ id: "productName", label: "Product name" });
+        if (!productCategory) m.push({ id: "productCategory", label: "Product category" });
+        if (!textFields.serialNumber) m.push({ id: "serialNumber", label: "Serial number" });
+        if (!failureDate) m.push({ id: "dateOfFailure", label: "Date of product failure" });
+        if (!problemOk) m.push({ id: "problem", label: "Problem description" });
+        if (!files.invoice) m.push({ id: "uploadInvoice", label: "Invoice upload" });
+        if (!files.serial) m.push({ id: "uploadSerial", label: "Serial number photo" });
+        if (!files.full) m.push({ id: "uploadFull", label: "Full product photo" });
+        if (!files.closeup) m.push({ id: "uploadCloseup", label: "Closeup photo" });
+        if (!dataPolicyAccepted) m.push({ id: "dataPolicy", label: "Data Policy agreement" });
+        return m;
+    };
+
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setSubmitError(null);
         setSubmitSuccess(false);
+        if (!formValid) {
+            setAttemptedSubmit(true);
+            const missing = missingFields();
+            const first = missing[0];
+            if (first) {
+                const el = document.getElementById(first.id);
+                if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    if (el instanceof HTMLElement) {
+                        setTimeout(() => el.focus?.({ preventScroll: true }), 400);
+                    }
+                }
+            }
+            return;
+        }
+        setAttemptedSubmit(false);
         setSubmitting(true);
         const formEl = e.currentTarget;
         try {
@@ -736,6 +777,7 @@ export function WarrantyForm() {
                 </p>
                 <label className="mt-4 flex cursor-pointer items-start gap-3">
                     <input
+                        id="dataPolicy"
                         type="checkbox"
                         name="dataPolicy"
                         className="cbx-input sr-only"
@@ -766,11 +808,12 @@ export function WarrantyForm() {
                 </label>
             </div>
 
-            <div className="mt-10 flex flex-wrap items-center gap-5">
+            <div className="mt-10 flex flex-col items-center gap-4 text-center">
                 <button
                     type="submit"
-                    className="btn-send"
-                    disabled={submitting || !formValid}
+                    className={`btn-send ${!formValid && !submitting ? "is-muted" : ""}`}
+                    disabled={submitting}
+                    aria-disabled={!formValid || submitting}
                 >
                     {submitting ? "Uploading…" : "Submit warranty request"}
                     {!submitting && (
@@ -790,13 +833,19 @@ export function WarrantyForm() {
                         </svg>
                     )}
                 </button>
-                <p className="text-[12px] text-mute">
-                    {formValid || submitting
-                        ? <>Fields marked <span className="req">*</span> are required</>
-                        : <>Please complete all required fields to submit</>}
-                </p>
+                {!formValid && attemptedSubmit ? (
+                    <p className="text-[12px] text-red-600" role="alert" aria-live="polite">
+                        {missingFields().length} required field{missingFields().length === 1 ? "" : "s"} still needed — scrolled to <strong className="font-semibold">{missingFields()[0]?.label}</strong>
+                    </p>
+                ) : (
+                    <p className="text-[12px] text-mute">
+                        {formValid || submitting
+                            ? <>Fields marked <span className="req">*</span> are required</>
+                            : <>Please complete all required fields to submit</>}
+                    </p>
+                )}
                 {submitError && (
-                    <p className="w-full text-[13px] text-red-500">{submitError}</p>
+                    <p className="text-[13px] text-red-500">{submitError}</p>
                 )}
             </div>
         </form>
@@ -879,7 +928,13 @@ function SuccessModal({
                 <button
                     type="button"
                     className="btn-send mt-6"
-                    onClick={onClose}
+                    onClick={() => {
+                        onClose();
+                        window.close();
+                        setTimeout(() => {
+                            window.location.href = "https://www.patrikinternational.com/";
+                        }, 150);
+                    }}
                 >
                     Close
                 </button>

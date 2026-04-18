@@ -253,6 +253,16 @@ body {
   opacity: 0.65 !important;
   pointer-events: none;
 }
+.btn-send.is-muted {
+  background: #c9d1d6;
+  color: #fff;
+  opacity: 0.7;
+  cursor: pointer;
+}
+.btn-send.is-muted:hover {
+  background: #b7c0c6;
+  opacity: 0.85;
+}
 
 /* --- Checkbox ---------------------------------------------------------- */
 .cbx {
