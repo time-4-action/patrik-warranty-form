@@ -837,3 +837,48 @@ body {
 .upc.has-error .upc-empty {
   border-color: var(--req);
 }
+
+/* --- Address Autocomplete --------------------------------------------- */
+.ac-wrap {
+  position: relative;
+}
+.ac-wrap[data-open="true"] .field-bar {
+  transform: scaleX(1);
+  background: var(--cyan-3);
+}
+.ac-list {
+  --cs-pad-x: 0.85rem;
+  --cs-icon-indent: 0px;
+}
+.ac-list .cs-option {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.55rem var(--cs-pad-x);
+}
+.ac-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.ac-sub {
+  font-size: 11.5px;
+  color: var(--mute);
+  line-height: 1.3;
+}
+.ac-spinner {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--rule-2);
+  border-top-color: var(--cyan-3);
+  border-radius: 50%;
+  animation: ac-spin 600ms linear infinite;
+  pointer-events: none;
+}
+@keyframes ac-spin {
+  to { transform: translateY(-50%) rotate(360deg); }
+}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { WarrantyForm } from "./_components/WarrantyForm";
 
 export const metadata: Metadata = {
-  title: "Warranty Request — PATRIK",
+  title: "PATRIK – Warranty Claim",
   description: "Submit a PATRIK warranty request.",
 };
 

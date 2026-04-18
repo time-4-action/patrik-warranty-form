@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CustomSelect, DatePicker } from "./Pickers";
 import { UploadCard } from "./UploadCard";
+import { AddressAutocomplete } from "./AddressAutocomplete";
 
 const COUNTRIES = [
     "Afghanistan",
@@ -413,7 +414,7 @@ export function WarrantyForm() {
                     status={confirmStatus}
                 />
                 <Field id="phone" label="Phone" type="tel" />
-                <Field id="address" label="Address" required colSpan="md:col-span-2" />
+                <AddressAutocomplete id="address" label="Address" required colSpan="md:col-span-2" />
                 <CustomSelect
                     id="countryOfPurchase"
                     label="Country of purchase"
