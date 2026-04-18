@@ -242,8 +242,16 @@ body {
   cursor: pointer;
   transition: background-color 200ms ease;
 }
-.btn-send:hover {
+.btn-send:hover:not(:disabled):not([disabled]) {
   background: var(--cyan-2);
+}
+.btn-send:disabled,
+.btn-send[disabled] {
+  background: #c9d1d6 !important;
+  color: #fff !important;
+  cursor: not-allowed !important;
+  opacity: 0.65 !important;
+  pointer-events: none;
 }
 
 /* --- Checkbox ---------------------------------------------------------- */

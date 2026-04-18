@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CustomSelect, DatePicker } from "./Pickers";
 import { UploadCard } from "./UploadCard";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { ProductNameAutocomplete } from "./ProductNameAutocomplete";
+import type { WarrantyPayload } from "@/types/warranty";
 
 const COUNTRIES = [
     "Afghanistan",
@@ -365,6 +367,39 @@ export function WarrantyForm() {
     const [failureDate, setFailureDate] = useState<Date | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [lastSubmissionId, setLastSubmissionId] = useState<string | null>(null);
+
+    const [typeOfPartner, setTypeOfPartner] = useState("");
+    const [countryOfPurchase, setCountryOfPurchase] = useState("");
+    const [dataPolicyAccepted, setDataPolicyAccepted] = useState(false);
+
+    const [textFields, setTextFields] = useState({
+        name: "",
+        surname: "",
+        address: "",
+        invoiceNumber: "",
+        invoiceIssuedBy: "",
+        productName: "",
+        serialNumber: "",
+    });
+
+    const formRef = useRef<HTMLFormElement>(null);
+
+    const snapshotText = () => {
+        const f = formRef.current;
+        if (!f) return;
+        const fd = new FormData(f);
+        setTextFields({
+            name: String(fd.get("name") ?? "").trim(),
+            surname: String(fd.get("surname") ?? "").trim(),
+            address: String(fd.get("address") ?? "").trim(),
+            invoiceNumber: String(fd.get("invoiceNumber") ?? "").trim(),
+            invoiceIssuedBy: String(fd.get("invoiceIssuedBy") ?? "").trim(),
+            productName: String(fd.get("productName") ?? "").trim(),
+            serialNumber: String(fd.get("serialNumber") ?? "").trim(),
+        });
+    };
 
     const [files, setFiles] = useState<{
         invoice: File | null;
@@ -398,13 +433,38 @@ export function WarrantyForm() {
 
     const today = new Date();
 
+    const allFilesPresent = Boolean(
+        files.invoice && files.serial && files.full && files.closeup,
+    );
+    const emailOk =
+        emailValid && (confirmEmail === "" || confirmEmail === email);
+    const formValid =
+        !!textFields.name &&
+        !!textFields.surname &&
+        emailOk &&
+        !!typeOfPartner &&
+        !!textFields.address &&
+        !!textFields.invoiceNumber &&
+        !!purchaseDate &&
+        !!textFields.invoiceIssuedBy &&
+        !!countryOfPurchase &&
+        !!textFields.productName &&
+        !!productCategory &&
+        !!textFields.serialNumber &&
+        !!failureDate &&
+        problemOk &&
+        allFilesPresent &&
+        dataPolicyAccepted;
+
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setSubmitError(null);
+        setSubmitSuccess(false);
         setSubmitting(true);
+        const formEl = e.currentTarget;
         try {
             const submissionId = crypto.randomUUID();
-            const formData = new FormData(e.currentTarget);
+            const formData = new FormData(formEl);
             const uploads: Record<string, string> = {};
             const fileEntries: [string, File | null][] = [
                 ["invoice", files.invoice],
@@ -415,21 +475,85 @@ export function WarrantyForm() {
             for (const [slot, file] of fileEntries) {
                 if (file) uploads[slot] = await uploadFile(submissionId, slot, file);
             }
-            // TODO: send formData + uploads + submissionId to your backend
-            console.log("Submission ID:", submissionId);
-            console.log("Form data:", Object.fromEntries(formData));
-            console.log("Uploaded file URLs:", uploads);
+
+            const payload: WarrantyPayload = {
+                submissionId,
+                name: String(formData.get("name") ?? ""),
+                surname: String(formData.get("surname") ?? ""),
+                company: String(formData.get("company") ?? ""),
+                email: String(formData.get("email") ?? ""),
+                phone: String(formData.get("phone") ?? ""),
+                typeOfPartner: String(formData.get("typeOfPartner") ?? ""),
+                address: String(formData.get("address") ?? ""),
+                invoiceNumber: String(formData.get("invoiceNumber") ?? ""),
+                invoiceIssuedBy: String(formData.get("invoiceIssuedBy") ?? ""),
+                dateOfPurchase: String(formData.get("dateOfPurchase") ?? ""),
+                countryOfPurchase: String(formData.get("countryOfPurchase") ?? ""),
+                productName: String(formData.get("productName") ?? ""),
+                productCategory: String(formData.get("productCategory") ?? ""),
+                serialNumber: String(formData.get("serialNumber") ?? ""),
+                dateOfFailure: String(formData.get("dateOfFailure") ?? ""),
+                problemDescription: String(formData.get("problem") ?? ""),
+                fileUrls: {
+                    invoice: uploads.invoice ?? "",
+                    serial: uploads.serial ?? "",
+                    full: uploads.full ?? "",
+                    closeup: uploads.closeup ?? "",
+                },
+                dataPolicyAccepted: formData.get("dataPolicy") === "on",
+            };
+
+            const res = await fetch("/api/warranty", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(
+                    body.error
+                        ? `${body.error} (ref: ${submissionId})`
+                        : `Submission failed (ref: ${submissionId})`,
+                );
+            }
+
+            formEl.reset();
+            setEmail("");
+            setConfirmEmail("");
+            setProblem("");
+            setProductCategory("");
+            setPurchaseDate(null);
+            setFailureDate(null);
+            setTypeOfPartner("");
+            setCountryOfPurchase("");
+            setDataPolicyAccepted(false);
+            setTextFields({
+                name: "",
+                surname: "",
+                address: "",
+                invoiceNumber: "",
+                invoiceIssuedBy: "",
+                productName: "",
+                serialNumber: "",
+            });
+            setFiles({ invoice: null, serial: null, full: null, closeup: null });
+            setLastSubmissionId(submissionId);
+            setSubmitSuccess(true);
         } catch (err) {
-            setSubmitError(err instanceof Error ? err.message : "Upload failed");
+            setSubmitError(err instanceof Error ? err.message : "Submission failed");
         } finally {
             setSubmitting(false);
         }
     }
 
     return (
+      <>
         <form
+            ref={formRef}
             className="border-t-2 border-cyan pt-8 sm:pt-10"
             onSubmit={handleSubmit}
+            onInput={snapshotText}
+            noValidate
         >
             {/* Form header */}
             <div className="mb-8 text-center">
@@ -468,6 +592,8 @@ export function WarrantyForm() {
                     label="Type of partner"
                     options={PARTNER_TYPES}
                     required
+                    value={typeOfPartner}
+                    onChange={setTypeOfPartner}
                 />
                 <AddressAutocomplete id="address" label="Address" required colSpan="md:col-span-2" />
             </div>
@@ -499,6 +625,8 @@ export function WarrantyForm() {
                     required
                     searchable
                     colSpan="md:col-span-2"
+                    value={countryOfPurchase}
+                    onChange={setCountryOfPurchase}
                 />
             </div>
 
@@ -611,6 +739,8 @@ export function WarrantyForm() {
                         type="checkbox"
                         name="dataPolicy"
                         className="cbx-input sr-only"
+                        checked={dataPolicyAccepted}
+                        onChange={(e) => setDataPolicyAccepted(e.target.checked)}
                     />
                     <span className="cbx">
                         <svg
@@ -637,8 +767,12 @@ export function WarrantyForm() {
             </div>
 
             <div className="mt-10 flex flex-wrap items-center gap-5">
-                <button type="submit" className="btn-send" disabled={submitting}>
-                    {submitting ? "Uploading…" : "Send"}
+                <button
+                    type="submit"
+                    className="btn-send"
+                    disabled={submitting || !formValid}
+                >
+                    {submitting ? "Uploading…" : "Submit warranty request"}
                     {!submitting && (
                         <svg
                             viewBox="0 0 20 20"
@@ -657,12 +791,100 @@ export function WarrantyForm() {
                     )}
                 </button>
                 <p className="text-[12px] text-mute">
-                    Fields marked <span className="req">*</span> are required
+                    {formValid || submitting
+                        ? <>Fields marked <span className="req">*</span> are required</>
+                        : <>Please complete all required fields to submit</>}
                 </p>
                 {submitError && (
                     <p className="w-full text-[13px] text-red-500">{submitError}</p>
                 )}
             </div>
         </form>
+        {submitSuccess && (
+          <SuccessModal
+            submissionId={lastSubmissionId}
+            onClose={() => setSubmitSuccess(false)}
+          />
+        )}
+      </>
+    );
+}
+
+function SuccessModal({
+    submissionId,
+    onClose,
+}: {
+    submissionId: string | null;
+    onClose: () => void;
+}) {
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        document.addEventListener("keydown", onKey);
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            document.body.style.overflow = prev;
+        };
+    }, [onClose]);
+
+    if (typeof document === "undefined") return null;
+
+    return createPortal(
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="success-modal-title"
+        >
+            <div
+                className="relative w-full max-w-md rounded-xl bg-white p-8 text-center shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className="h-9 w-9"
+                        aria-hidden
+                    >
+                        <path
+                            d="M5 12l5 5 9-11"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                    </svg>
+                </div>
+                <h3
+                    id="success-modal-title"
+                    className="font-display text-[22px] font-bold uppercase tracking-[0.18em] text-cyan"
+                >
+                    Request submitted
+                </h3>
+                <p className="mt-3 text-[14px] leading-relaxed text-ink-2">
+                    Thank you — your warranty request has been received. Our team will
+                    reach out if anything else is needed.
+                </p>
+                {submissionId && (
+                    <p className="mt-4 text-[11px] text-mute">
+                        Reference:{" "}
+                        <code className="font-mono text-[11px]">{submissionId}</code>
+                    </p>
+                )}
+                <button
+                    type="button"
+                    className="btn-send mt-6"
+                    onClick={onClose}
+                >
+                    Close
+                </button>
+            </div>
+        </div>,
+        document.body,
     );
 }
