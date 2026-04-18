@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CustomSelect, DatePicker } from "./Pickers";
 import { UploadCard } from "./UploadCard";
 import { AddressAutocomplete } from "./AddressAutocomplete";
+import { ProductNameAutocomplete } from "./ProductNameAutocomplete";
 
 const COUNTRIES = [
     "Afghanistan",
@@ -219,11 +220,11 @@ const COUNTRIES = [
 ];
 
 const PARTNER_TYPES = [
-    "Authorised PATRIK dealer",
-    "PATRIK distributor",
-    "Online shop",
-    "Private seller",
-    "Other",
+    "Surfshop",
+    "Partner",
+    "Team Rider",
+    "Promo Rider",
+    "Direct customer",
 ];
 
 const PRODUCT_CATEGORIES = [
@@ -341,6 +342,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 export function WarrantyForm() {
     const [email, setEmail] = useState("");
     const [confirmEmail, setConfirmEmail] = useState("");
+    const [productCategory, setProductCategory] = useState("");
     const [problem, setProblem] = useState("");
     const [purchaseDate, setPurchaseDate] = useState<Date | null>(null);
     const [failureDate, setFailureDate] = useState<Date | null>(null);
@@ -432,18 +434,21 @@ export function WarrantyForm() {
 
             <SectionHeading>Product Information</SectionHeading>
             <div className="grid gap-x-10 gap-y-2 md:grid-cols-2">
+                <ProductNameAutocomplete
+                    id="productName"
+                    label="Official product name"
+                    required
+                    colSpan="md:col-span-2"
+                    onCategoryChange={setProductCategory}
+                />
                 <CustomSelect
                     id="productCategory"
                     label="Product category"
                     options={PRODUCT_CATEGORIES}
                     required
                     colSpan="md:col-span-2"
-                />
-                <Field
-                    id="productName"
-                    label="Official product name"
-                    required
-                    colSpan="md:col-span-2"
+                    value={productCategory}
+                    onChange={setProductCategory}
                 />
                 <Field id="serialNumber" label="Serial number" required />
                 <Field id="invoiceNumber" label="Invoice number" required />
