@@ -242,6 +242,23 @@ const PRODUCT_CATEGORIES = [
 const PROBLEM_MIN = 25;
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+async function uploadFile(submissionId: string, slot: string, file: File): Promise<string> {
+  const res = await fetch("/api/upload-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ submissionId, slot, filename: file.name, contentType: file.type }),
+  });
+  if (!res.ok) throw new Error("Failed to get upload URL");
+  const { presignedUrl, publicUrl } = await res.json();
+  const put = await fetch(presignedUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!put.ok) throw new Error(`Upload failed: ${put.status}`);
+  return publicUrl;
+}
+
 /* ---------- Small input helpers ---------- */
 
 function Field({
@@ -346,6 +363,8 @@ export function WarrantyForm() {
     const [problem, setProblem] = useState("");
     const [purchaseDate, setPurchaseDate] = useState<Date | null>(null);
     const [failureDate, setFailureDate] = useState<Date | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const [files, setFiles] = useState<{
         invoice: File | null;
@@ -379,10 +398,38 @@ export function WarrantyForm() {
 
     const today = new Date();
 
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        setSubmitError(null);
+        setSubmitting(true);
+        try {
+            const submissionId = crypto.randomUUID();
+            const formData = new FormData(e.currentTarget);
+            const uploads: Record<string, string> = {};
+            const fileEntries: [string, File | null][] = [
+                ["invoice", files.invoice],
+                ["serial", files.serial],
+                ["full", files.full],
+                ["closeup", files.closeup],
+            ];
+            for (const [slot, file] of fileEntries) {
+                if (file) uploads[slot] = await uploadFile(submissionId, slot, file);
+            }
+            // TODO: send formData + uploads + submissionId to your backend
+            console.log("Submission ID:", submissionId);
+            console.log("Form data:", Object.fromEntries(formData));
+            console.log("Uploaded file URLs:", uploads);
+        } catch (err) {
+            setSubmitError(err instanceof Error ? err.message : "Upload failed");
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
     return (
         <form
             className="border-t-2 border-cyan pt-8 sm:pt-10"
-            onSubmit={(e) => e.preventDefault()}
+            onSubmit={handleSubmit}
         >
             {/* Form header */}
             <div className="mb-8 text-center">
@@ -590,26 +637,31 @@ export function WarrantyForm() {
             </div>
 
             <div className="mt-10 flex flex-wrap items-center gap-5">
-                <button type="submit" className="btn-send">
-                    Send
-                    <svg
-                        viewBox="0 0 20 20"
-                        fill="none"
-                        className="h-3.5 w-3.5"
-                        aria-hidden
-                    >
-                        <path
-                            d="M4 10h12M11 5l5 5-5 5"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        />
-                    </svg>
+                <button type="submit" className="btn-send" disabled={submitting}>
+                    {submitting ? "Uploading…" : "Send"}
+                    {!submitting && (
+                        <svg
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            className="h-3.5 w-3.5"
+                            aria-hidden
+                        >
+                            <path
+                                d="M4 10h12M11 5l5 5-5 5"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
+                    )}
                 </button>
                 <p className="text-[12px] text-mute">
                     Fields marked <span className="req">*</span> are required
                 </p>
+                {submitError && (
+                    <p className="w-full text-[13px] text-red-500">{submitError}</p>
+                )}
             </div>
         </form>
     );
