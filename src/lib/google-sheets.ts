@@ -44,6 +44,8 @@ export async function appendWarrantyRow(
     p.invoiceIssuedBy,
     p.dateOfPurchase,
     p.countryOfPurchase,
+    p.sku,
+    p.ean,
     p.productName,
     p.productCategory,
     p.serialNumber,
@@ -58,7 +60,7 @@ export async function appendWarrantyRow(
 
   await getSheetsClient().spreadsheets.values.append({
     spreadsheetId,
-    range: `${tab}!A:W`,
+    range: `${tab}!A:Y`,
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
     requestBody: { values: [row] },

@@ -16,6 +16,8 @@ interface ProductResult {
 interface Suggestion {
     name: string;
     category: string;
+    sku: string;
+    ean: string;
 }
 
 function useClickOutside(
@@ -48,6 +50,7 @@ export function ProductNameAutocomplete({
     value,
     onChange,
     onCategoryChange,
+    onProductSelect,
 }: {
     id: string;
     label: string;
@@ -56,6 +59,7 @@ export function ProductNameAutocomplete({
     value?: string;
     onChange?: (v: string) => void;
     onCategoryChange?: (category: string) => void;
+    onProductSelect?: (data: { sku: string; ean: string }) => void;
 }) {
     const [inputValue, setInputValue] = useState(value ?? "");
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -91,7 +95,12 @@ export function ProductNameAutocomplete({
             for (const p of data.data as ProductResult[]) {
                 if (!seen.has(p.product_name)) {
                     seen.add(p.product_name);
-                    unique.push({ name: p.product_name, category: p.category ?? "" });
+                    unique.push({
+                        name: p.product_name,
+                        category: p.category ?? "",
+                        sku: p.code ?? "",
+                        ean: p.ean_code ?? "",
+                    });
                 }
             }
             setSuggestions(unique);
@@ -114,6 +123,7 @@ export function ProductNameAutocomplete({
         setInputValue(s.name);
         onChange?.(s.name);
         if (s.category) onCategoryChange?.(s.category);
+        onProductSelect?.({ sku: s.sku, ean: s.ean });
         close();
     };
 

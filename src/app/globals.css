@@ -953,3 +953,21 @@ body {
 @keyframes ac-spin {
   to { transform: translateY(-50%) rotate(360deg); }
 }
+
+
+/* --- Processing modal spinner ----------------------------------------- */
+.proc-spinner {
+  display: inline-block;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 3px solid rgba(25, 184, 204, 0.18);
+  border-top-color: var(--cyan);
+  animation: proc-spin 900ms linear infinite;
+}
+@keyframes proc-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .proc-spinner { animation: none; }
+}

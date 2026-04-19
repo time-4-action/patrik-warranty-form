@@ -6,6 +6,7 @@ import { CustomSelect, DatePicker } from "./Pickers";
 import { UploadCard } from "./UploadCard";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { ProductNameAutocomplete } from "./ProductNameAutocomplete";
+import { SubmittingOverlay, type SubmitStage } from "./SubmittingOverlay";
 import type { WarrantyPayload } from "@/types/warranty";
 
 const COUNTRIES = [
@@ -369,9 +370,13 @@ export function WarrantyForm() {
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const [lastSubmissionId, setLastSubmissionId] = useState<string | null>(null);
+    const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
+    const [stages, setStages] = useState<SubmitStage[]>([]);
 
     const [typeOfPartner, setTypeOfPartner] = useState("");
     const [countryOfPurchase, setCountryOfPurchase] = useState("");
+    const [sku, setSku] = useState("");
+    const [ean, setEan] = useState("");
     const [dataPolicyAccepted, setDataPolicyAccepted] = useState(false);
     const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
@@ -501,10 +506,21 @@ export function WarrantyForm() {
             return;
         }
         setAttemptedSubmit(false);
+        const submissionId = crypto.randomUUID();
+        setActiveSubmissionId(submissionId);
+        const initialStages: SubmitStage[] = [
+            { key: "invoice", label: "Invoice / proof of purchase", status: "pending" },
+            { key: "serial", label: "Serial number photo", status: "pending" },
+            { key: "full", label: "Full product photo", status: "pending" },
+            { key: "closeup", label: "Closeup photo", status: "pending" },
+            { key: "record", label: "Transmit warranty record", status: "pending" },
+        ];
+        setStages(initialStages);
         setSubmitting(true);
+        const setStage = (key: string, status: SubmitStage["status"]) =>
+            setStages((prev) => prev.map((s) => (s.key === key ? { ...s, status } : s)));
         const formEl = e.currentTarget;
         try {
-            const submissionId = crypto.randomUUID();
             const formData = new FormData(formEl);
             const uploads: Record<string, string> = {};
             const fileEntries: [string, File | null][] = [
@@ -514,8 +530,13 @@ export function WarrantyForm() {
                 ["closeup", files.closeup],
             ];
             for (const [slot, file] of fileEntries) {
-                if (file) uploads[slot] = await uploadFile(submissionId, slot, file);
+                if (file) {
+                    setStage(slot, "active");
+                    uploads[slot] = await uploadFile(submissionId, slot, file);
+                    setStage(slot, "done");
+                }
             }
+            setStage("record", "active");
 
             const payload: WarrantyPayload = {
                 submissionId,
@@ -530,6 +551,8 @@ export function WarrantyForm() {
                 invoiceIssuedBy: String(formData.get("invoiceIssuedBy") ?? ""),
                 dateOfPurchase: String(formData.get("dateOfPurchase") ?? ""),
                 countryOfPurchase: String(formData.get("countryOfPurchase") ?? ""),
+                sku: String(formData.get("sku") ?? ""),
+                ean: String(formData.get("ean") ?? ""),
                 productName: String(formData.get("productName") ?? ""),
                 productCategory: String(formData.get("productCategory") ?? ""),
                 serialNumber: String(formData.get("serialNumber") ?? ""),
@@ -557,6 +580,8 @@ export function WarrantyForm() {
                         : `Submission failed (ref: ${submissionId})`,
                 );
             }
+            setStage("record", "done");
+            await new Promise((r) => setTimeout(r, 850));
 
             formEl.reset();
             setEmail("");
@@ -567,6 +592,8 @@ export function WarrantyForm() {
             setFailureDate(null);
             setTypeOfPartner("");
             setCountryOfPurchase("");
+            setSku("");
+            setEan("");
             setDataPolicyAccepted(false);
             setTextFields({
                 name: "",
@@ -584,6 +611,8 @@ export function WarrantyForm() {
             setSubmitError(err instanceof Error ? err.message : "Submission failed");
         } finally {
             setSubmitting(false);
+            setStages([]);
+            setActiveSubmissionId(null);
         }
     }
 
@@ -636,7 +665,18 @@ export function WarrantyForm() {
                     value={typeOfPartner}
                     onChange={setTypeOfPartner}
                 />
-                <AddressAutocomplete id="address" label="Address" required colSpan="md:col-span-2" />
+                <AddressAutocomplete
+                    id="address"
+                    label="Address"
+                    required
+                    colSpan="md:col-span-2"
+                    onCountryChange={(name) => {
+                        const lower = name.toLowerCase();
+                        const match = COUNTRIES.find((c) => c.toLowerCase() === lower)
+                            ?? COUNTRIES.find((c) => c.toLowerCase().includes(lower) || lower.includes(c.toLowerCase()));
+                        if (match) setCountryOfPurchase(match);
+                    }}
+                />
             </div>
 
             <SectionHeading>Purchase Details</SectionHeading>
@@ -673,12 +713,18 @@ export function WarrantyForm() {
 
             <SectionHeading>Product Information</SectionHeading>
             <div className="grid gap-x-10 gap-y-2 md:grid-cols-2">
+                <Field id="sku" label="SKU" value={sku} onChange={setSku} />
+                <Field id="ean" label="EAN" value={ean} onChange={setEan} />
                 <ProductNameAutocomplete
                     id="productName"
                     label="Official product name"
                     required
                     colSpan="md:col-span-2"
                     onCategoryChange={setProductCategory}
+                    onProductSelect={(d) => {
+                        setSku(d.sku);
+                        setEan(d.ean);
+                    }}
                 />
                 <CustomSelect
                     id="productCategory"
@@ -849,6 +895,9 @@ export function WarrantyForm() {
                 )}
             </div>
         </form>
+        {submitting && (
+          <SubmittingOverlay stages={stages} submissionId={activeSubmissionId} />
+        )}
         {submitSuccess && (
           <SuccessModal
             submissionId={lastSubmissionId}

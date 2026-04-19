@@ -42,6 +42,7 @@ export function AddressAutocomplete({
     colSpan,
     value,
     onChange,
+    onCountryChange,
 }: {
     id: string;
     label: string;
@@ -49,6 +50,7 @@ export function AddressAutocomplete({
     colSpan?: string;
     value?: string;
     onChange?: (v: string) => void;
+    onCountryChange?: (country: string) => void;
 }) {
     const [inputValue, setInputValue] = useState(value ?? "");
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -117,6 +119,10 @@ export function AddressAutocomplete({
                     suggestion.place_formatted;
                 setInputValue(address);
                 onChange?.(address);
+                const countryName: string | undefined =
+                    feature?.properties?.context?.country?.name ??
+                    feature?.properties?.context?.country?.translated ?? undefined;
+                if (countryName) onCountryChange?.(countryName);
             } else {
                 const address = suggestion.full_address ?? suggestion.place_formatted;
                 setInputValue(address);

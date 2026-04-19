@@ -18,6 +18,8 @@ export type WarrantyPayload = {
   invoiceIssuedBy: string;
   dateOfPurchase: string;
   countryOfPurchase: string;
+  sku: string;
+  ean: string;
   productName: string;
   productCategory: string;
   serialNumber: string;
