@@ -28,9 +28,9 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
     <>
       <style>{printCss}</style>
 
-      <div className="doc-outer min-h-full bg-bg-2 py-8 sm:py-12">
+      <div className="doc-outer min-h-full bg-bg-2 py-5 sm:py-12">
         {/* Action bar — hidden when printing */}
-        <div className="no-print mx-auto mb-6 flex max-w-[820px] flex-wrap items-center justify-between gap-4 px-6">
+        <div className="no-print mx-auto mb-4 flex max-w-[820px] flex-wrap items-center justify-between gap-3 px-5 sm:mb-6 sm:gap-4 sm:px-6">
           <Link
             href="/warranty"
             className="inline-flex items-center gap-2 text-[12.5px] text-ink-2 transition-colors hover:text-ink"
@@ -55,18 +55,18 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
         </div>
 
         <article className="doc-paper mx-auto max-w-[820px] border border-rule bg-white shadow-[0_6px_30px_-8px_rgba(15,17,21,0.15)]">
-          <div className="px-10 pt-12 pb-14 sm:px-16 sm:pt-14 sm:pb-16">
+          <div className="px-5 pt-8 pb-10 sm:px-16 sm:pt-14 sm:pb-16">
             {/* Masthead — logo + document type */}
-            <div className="doc-masthead mb-10 flex items-center justify-between gap-4 border-b border-rule pb-6">
+            <div className="doc-masthead mb-8 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-rule pb-5 sm:mb-10 sm:pb-6">
               <Image
                 src="/patrik.png"
                 alt="PATRIK International"
                 width={1462}
                 height={317}
                 priority
-                className="h-9 w-auto sm:h-10"
+                className="h-8 w-auto sm:h-10"
               />
-              <span className="font-display text-[10px] font-bold uppercase tracking-[0.22em] text-ink-2 sm:text-[11px]">
+              <span className="font-display text-[9.5px] font-bold uppercase tracking-[0.2em] text-ink-2 sm:text-[11px] sm:tracking-[0.22em]">
                 Warranty Claim Receipt
               </span>
             </div>
@@ -93,7 +93,7 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
             </div>
 
             {/* Meta strip */}
-            <div className="meta-strip mt-8 flex flex-col gap-5 border-t border-b border-rule py-5 sm:flex-row sm:gap-14">
+            <div className="meta-strip mt-7 flex flex-col gap-4 border-t border-b border-rule py-4 sm:mt-8 sm:flex-row sm:gap-14 sm:py-5">
               <MetaItem label="Claim No." value={doc.submissionId} mono />
               <MetaItem
                 label="Submitted"
@@ -168,13 +168,13 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
             </Section>
 
             {/* Sign-off */}
-            <div className="sign-off mt-12 text-[13.5px] leading-[1.7]">
+            <div className="sign-off mt-10 text-[13.5px] leading-[1.7] sm:mt-12">
               <p className="text-ink-2">Thank you for choosing PATRIK.</p>
               <p className="mt-1 font-semibold text-ink">The PATRIK Team</p>
             </div>
 
             {/* Fine print footer */}
-            <footer className="doc-footer mt-10 border-t border-rule pt-5 text-[11px] leading-[1.65] text-mute">
+            <footer className="doc-footer mt-8 border-t border-rule pt-4 text-[11px] leading-[1.65] text-mute sm:mt-10 sm:pt-5">
               <p className="text-ink-2">
                 <span className="font-semibold text-ink">
                   Patrik International
@@ -195,7 +195,7 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
           </div>
         </article>
 
-        <p className="no-print mx-auto mt-6 max-w-[820px] px-6 text-center text-[11px] text-mute">
+        <p className="no-print mx-auto mt-4 max-w-[820px] px-5 text-center text-[11px] text-mute sm:mt-6 sm:px-6">
           Tip — use the Print button above, then choose &ldquo;Save as
           PDF&rdquo;.
         </p>
@@ -214,8 +214,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="doc-section mt-11">
-      <div className="mb-4 flex items-center gap-4">
+    <section className="doc-section mt-8 sm:mt-11">
+      <div className="mb-3 flex items-center gap-3 sm:mb-4 sm:gap-4">
         <span className="section-title">{title}</span>
         <span className="h-px flex-1 bg-rule" aria-hidden />
       </div>
