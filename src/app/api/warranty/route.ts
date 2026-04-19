@@ -1,4 +1,5 @@
 import { appendWarrantyRow } from "@/lib/google-sheets";
+import { insertWarrantyDoc } from "@/lib/warranty-mongo";
 import type { WarrantyPayload } from "@/types/warranty";
 
 export const runtime = "nodejs";
@@ -20,15 +21,41 @@ export async function POST(request: Request) {
     }
 
     const submittedAt = new Date().toISOString();
-    await appendWarrantyRow(payload, submittedAt);
+
+    const [sheetResult, mongoResult] = await Promise.allSettled([
+      appendWarrantyRow(payload, submittedAt),
+      insertWarrantyDoc(payload, submittedAt),
+    ]);
+
+    if (sheetResult.status === "rejected") {
+      console.error("warranty sheet append failed", {
+        submissionId: payload.submissionId,
+        fileUrls: payload.fileUrls,
+        err: sheetResult.reason,
+      });
+    }
+    if (mongoResult.status === "rejected") {
+      console.error("warranty mongo insert failed", {
+        submissionId: payload.submissionId,
+        fileUrls: payload.fileUrls,
+        err: mongoResult.reason,
+      });
+    }
+
+    if (
+      sheetResult.status === "rejected" ||
+      mongoResult.status === "rejected"
+    ) {
+      return Response.json({ error: "Persistence failed" }, { status: 500 });
+    }
 
     return Response.json({ ok: true });
   } catch (err) {
-    console.error("warranty sheet append failed", {
+    console.error("warranty submission failed", {
       submissionId: payload?.submissionId,
       fileUrls: payload?.fileUrls,
       err,
     });
-    return Response.json({ error: "Sheet write failed" }, { status: 500 });
+    return Response.json({ error: "Submission failed" }, { status: 500 });
   }
 }
