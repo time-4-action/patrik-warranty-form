@@ -58,6 +58,13 @@ export async function appendWarrantyRow(
     p.dataPolicyAccepted ? "TRUE" : "FALSE",
   ].map(escapeCell);
 
+  const baseUrl = process.env.BASE_URL?.replace(/\/+$/, "");
+  if (baseUrl) {
+    const label = p.submissionId.replace(/"/g, '""');
+    const url = `${baseUrl}/warranty/${encodeURIComponent(p.submissionId)}`;
+    row[0] = `=HYPERLINK("${url}", "${label}")`;
+  }
+
   await getSheetsClient().spreadsheets.values.append({
     spreadsheetId,
     range: `${tab}!A:Y`,
