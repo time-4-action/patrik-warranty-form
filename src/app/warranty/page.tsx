@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { WarrantyForm } from "./_components/WarrantyForm";
 
 export const metadata: Metadata = {
@@ -83,23 +84,12 @@ export default function WarrantyPage() {
           the terms and conditions.
         </p>
         <p className="mt-6 flex items-center justify-center gap-4 text-[12px]">
-          <a
-            href="https://www.patrikinternational.com/en/content/services/personal-data-protection-policy.html"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/privacy"
             className="font-display uppercase tracking-[0.2em] transition-colors hover:text-cyan"
           >
-            Data Protection
-          </a>
-          <span className="text-rule-2">|</span>
-          <a
-            href="https://www.patrikinternational.com/en/content/services/personal-data-protection-policy.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-display uppercase tracking-[0.2em] transition-colors hover:text-cyan"
-          >
-            Website Information
-          </a>
+            Privacy &amp; Data Policy
+          </Link>
         </p>
       </section>
     </main>

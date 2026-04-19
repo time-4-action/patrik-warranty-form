@@ -882,8 +882,18 @@ export function WarrantyForm() {
                     </span>
                     <span className="text-[13.5px] leading-relaxed text-ink-2">
                         I agree to the use of my submitted data in order to process my
-                        request. Personal information will not be used for marketing or
-                        other purposes.
+                        request, as described in the{" "}
+                        <a
+                            href="/privacy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-cyan-3 underline-offset-2 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            privacy &amp; data policy
+                        </a>
+                        . Personal information will not be used for marketing or other
+                        purposes.
                     </span>
                 </label>
             </div>

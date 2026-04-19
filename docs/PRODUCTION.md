@@ -8,6 +8,11 @@ What's done, what's deferred, and why each deferred item matters.
 - **Env validation at boot** via `src/instrumentation.ts` → `assertServerEnv()` (`src/lib/env.ts`). A missing var fails the server start, not the first user.
 - **Sentry** error tracking wired for client (`sentry.client.config.ts`), server (`sentry.server.config.ts`), edge (`sentry.edge.config.ts`), and route handlers (via `instrumentation.ts → onRequestError`). Inactive until `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` are set.
 - **Health check** at `GET /api/health` — pings Mongo, asserts Sheets and Turnstile env vars are set. Returns 200 / 503.
+- **Privacy / GPSR page** at `/privacy` — covers EU representative info (Creaglobe GmbH), GPSR / REACH / RoHS compliance statement, safety + maintenance instructions, and the data-deletion procedure (email `web@patrikinternational.com`). Linked from the consent checkbox in `WarrantyForm.tsx` and from the bottom of `/warranty`. Deletion is handled manually by Patrik staff against Mongo + the Hetzner bucket — acceptable at current claim volume; revisit if claim volume grows.
+
+## Design decisions (intentionally not done)
+
+- **Public Hetzner file URLs** *(was item #3)*: `uploads/warranty/<submissionId>/<slot>.<ext>` is publicly readable by anyone with the URL. Path is unguessable (UUID v4 `submissionId`) but not access-controlled. Patrik staff and internal tools depend on direct-link reads from the bucket; signed-URL gating would break them. Accepted trade-off — the unguessable path is the access control.
 
 ## Deferred
 
@@ -19,16 +24,6 @@ Each item has a one-line problem, a one-line fix, and the reason it's not blocki
   - Problem: staff have to poll the Google Sheet to see new claims.
   - Fix: in `src/app/api/warranty/route.ts`, after the dual-write succeeds, send an email (Resend) or post to a Slack webhook with the submission summary + receipt URL.
   - Deferred because: needs a decision on email-vs-Slack and a sender domain / webhook URL.
-
-- **Privacy policy + GDPR procedure** *(item #2)*
-  - Problem: form collects PII (name, email, phone, address) under a one-line "I agree" checkbox. EU customers can lawfully demand deletion (GDPR Art. 17) — there is no procedure.
-  - Fix: (a) add `/privacy` page linked from the data-policy text in `WarrantyForm.tsx`, (b) document a retention window for Mongo + S3, (c) add an admin script to delete by `submissionId` from both stores.
-  - Deferred because: needs legal copy from Patrik International.
-
-- **Public, PII-bearing file URLs** *(item #3)*
-  - Problem: `uploads/warranty/<submissionId>/invoice.jpg` contains invoice details (names, addresses, sometimes card data). Path is hard to guess (UUID v4) but anyone with the URL can read forever.
-  - Fix: make the Hetzner bucket private; serve files via signed GET URLs from `/warranty/[submissionId]`. Or document the current trade-off explicitly.
-  - Deferred because: changing bucket ACL requires coordinating with whoever else reads from it (Patrik staff, internal tools).
 
 ### Operations
 
