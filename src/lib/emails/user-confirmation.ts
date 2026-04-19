@@ -16,7 +16,7 @@ export function buildUserConfirmation(
   const contactEmail = "info@patrik-windsurf.com";
   const fullName = [payload.name, payload.surname].filter(Boolean).join(" ");
 
-  const subject = `Your Patrik warranty claim — #${shortId}`;
+  const subject = `Your PATRIK warranty request`;
 
   const html = `<!DOCTYPE html>
 <html>

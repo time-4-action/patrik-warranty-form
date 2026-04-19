@@ -11,9 +11,10 @@ export function buildAdminNotification(
     dateStyle: "long",
     timeStyle: "short",
   });
+  const submittedDateShort = new Date(submittedAt).toISOString().slice(0, 10);
   const fullName = [payload.name, payload.surname].filter(Boolean).join(" ");
 
-  const subject = `New warranty claim: ${fullName || payload.email} — ${payload.productName || "unnamed product"}`;
+  const subject = `Warranty Request [${submittedDateShort}] [${payload.productName || "unnamed product"}]`;
 
   const rows: [string, string][] = [
     ["Submission ID", payload.submissionId],
