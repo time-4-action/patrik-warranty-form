@@ -274,6 +274,7 @@ function Field({
     onChange,
     hint,
     status,
+    autoComplete = "off",
 }: {
     id: string;
     label: string;
@@ -284,6 +285,7 @@ function Field({
     onChange?: (v: string) => void;
     hint?: string;
     status?: "ok" | "error";
+    autoComplete?: string;
 }) {
     const controlled = value !== undefined;
     return (
@@ -294,6 +296,7 @@ function Field({
                     name={id}
                     type={type}
                     placeholder=" "
+                    autoComplete={autoComplete}
                     value={controlled ? value : undefined}
                     onChange={controlled ? (e) => onChange?.(e.target.value) : undefined}
                 />
@@ -623,6 +626,7 @@ export function WarrantyForm() {
             className="border-t-2 border-cyan pt-8 sm:pt-10"
             onSubmit={handleSubmit}
             onInput={snapshotText}
+            autoComplete="off"
             noValidate
         >
             {/* Form header */}
@@ -713,8 +717,8 @@ export function WarrantyForm() {
 
             <SectionHeading>Product Information</SectionHeading>
             <div className="grid gap-x-10 gap-y-2 md:grid-cols-2">
-                <Field id="sku" label="SKU" value={sku} onChange={setSku} />
-                <Field id="ean" label="EAN" value={ean} onChange={setEan} />
+                <input type="hidden" name="sku" value={sku} readOnly />
+                <input type="hidden" name="ean" value={ean} readOnly />
                 <ProductNameAutocomplete
                     id="productName"
                     label="Official product name"
@@ -755,6 +759,7 @@ export function WarrantyForm() {
                         name="problem"
                         placeholder=" "
                         rows={4}
+                        autoComplete="off"
                         value={problem}
                         onChange={(e) => setProblem(e.target.value)}
                     />
