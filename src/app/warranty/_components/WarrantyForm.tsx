@@ -621,6 +621,10 @@ export function WarrantyForm() {
                         : `Submission failed (ref: ${submissionId})`,
                 );
             }
+            const body = (await res.json().catch(() => ({}))) as {
+                submissionId?: string;
+            };
+            const confirmedSubmissionId = body.submissionId ?? submissionId;
             setStage("record", "done");
             await new Promise((r) => setTimeout(r, 850));
 
@@ -646,7 +650,7 @@ export function WarrantyForm() {
                 serialNumber: "",
             });
             setFiles({ invoice: null, serial: null, full: null, closeup: null });
-            setLastSubmissionId(submissionId);
+            setLastSubmissionId(confirmedSubmissionId);
             setSubmitSuccess(true);
         } catch (err) {
             setSubmitError(err instanceof Error ? err.message : "Submission failed");

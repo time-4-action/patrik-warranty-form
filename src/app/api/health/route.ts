@@ -1,3 +1,4 @@
+import { verifyTransport } from "@/lib/mail";
 import { getMongoDb } from "@/lib/mongo";
 
 export const runtime = "nodejs";
@@ -38,11 +39,21 @@ function checkTurnstileConfig(): CheckResult {
   return { ok: true };
 }
 
+async function checkSmtp(): Promise<CheckResult> {
+  try {
+    await verifyTransport();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export async function GET() {
   const checks = {
     mongo: await checkMongo(),
     sheets: checkSheetsConfig(),
     turnstile: checkTurnstileConfig(),
+    smtp: await checkSmtp(),
   };
   const allOk = Object.values(checks).every((c) => c.ok);
   return Response.json(

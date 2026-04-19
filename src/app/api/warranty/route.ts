@@ -1,4 +1,9 @@
+import * as Sentry from "@sentry/nextjs";
+import { buildAdminNotification } from "@/lib/emails/admin-notification";
+import { buildUserConfirmation } from "@/lib/emails/user-confirmation";
 import { appendWarrantyRow } from "@/lib/google-sheets";
+import { sendMail } from "@/lib/mail";
+import { getNotificationsConfig } from "@/lib/notifications-config";
 import { verifySessionToken } from "@/lib/turnstile";
 import { insertWarrantyDoc } from "@/lib/warranty-mongo";
 import type { WarrantyPayload } from "@/types/warranty";
@@ -58,7 +63,9 @@ export async function POST(request: Request) {
       return Response.json({ error: "Persistence failed" }, { status: 500 });
     }
 
-    return Response.json({ ok: true });
+    await sendNotificationEmails(payload, submittedAt);
+
+    return Response.json({ ok: true, submissionId: payload.submissionId });
   } catch (err) {
     console.error("warranty submission failed", {
       submissionId: payload?.submissionId,
@@ -66,5 +73,52 @@ export async function POST(request: Request) {
       err,
     });
     return Response.json({ error: "Submission failed" }, { status: 500 });
+  }
+}
+
+async function sendNotificationEmails(
+  payload: WarrantyPayload,
+  submittedAt: string,
+): Promise<void> {
+  const userEmail = buildUserConfirmation(payload, submittedAt);
+  const adminEmail = buildAdminNotification(payload, submittedAt);
+  const { adminRecipients } = getNotificationsConfig();
+
+  const [userResult, adminResult] = await Promise.allSettled([
+    sendMail({
+      to: payload.email,
+      subject: userEmail.subject,
+      html: userEmail.html,
+      text: userEmail.text,
+    }),
+    sendMail({
+      to: process.env.SMTP_FROM!,
+      bcc: adminRecipients,
+      subject: adminEmail.subject,
+      html: adminEmail.html,
+      text: adminEmail.text,
+      replyTo: payload.email,
+    }),
+  ]);
+
+  if (userResult.status === "rejected") {
+    console.error("warranty user email failed", {
+      submissionId: payload.submissionId,
+      err: userResult.reason,
+    });
+    Sentry.captureException(userResult.reason, {
+      tags: { kind: "warranty-user-email" },
+      extra: { submissionId: payload.submissionId },
+    });
+  }
+  if (adminResult.status === "rejected") {
+    console.error("warranty admin email failed", {
+      submissionId: payload.submissionId,
+      err: adminResult.reason,
+    });
+    Sentry.captureException(adminResult.reason, {
+      tags: { kind: "warranty-admin-email" },
+      extra: { submissionId: payload.submissionId },
+    });
   }
 }
