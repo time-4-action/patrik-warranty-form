@@ -29,7 +29,7 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
 
       <div className="doc-outer min-h-full bg-bg-2 py-5 sm:py-12">
         {/* Action bar — hidden when printing */}
-        <div className="no-print mx-auto mb-4 flex max-w-[820px] justify-end px-5 sm:mb-6 sm:px-6">
+        <div className="no-print mx-auto mb-4 flex max-w-[820px] justify-center px-5 sm:mb-6 sm:px-6">
           <PrintButton />
         </div>
 
@@ -167,7 +167,7 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
           </div>
         </article>
 
-        <div className="no-print mx-auto mt-4 flex max-w-[820px] justify-end px-5 sm:mt-6 sm:px-6">
+        <div className="no-print mx-auto mt-4 flex max-w-[820px] justify-center px-5 sm:mt-6 sm:px-6">
           <PrintButton />
         </div>
 
