@@ -124,9 +124,9 @@ export default function PrivacyPage() {
             If you wish to have your data deleted, please contact us at{" "}
             <a
               className="text-cyan-3 underline-offset-2 hover:underline"
-              href="mailto:web@patrikinternational.com"
+              href="mailto:info@patrik-windsurf.com"
             >
-              web@patrikinternational.com
+              info@patrik-windsurf.com
             </a>
             .
           </p>
