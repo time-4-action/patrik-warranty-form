@@ -119,7 +119,11 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
 
             {/* Problem Description */}
             <Section title="Problem Description">
-              <p className="whitespace-pre-wrap pt-1 text-[13.5px] leading-[1.8] text-ink">
+              <p
+                className="whitespace-pre-wrap pt-1 text-[13.5px] leading-[1.8] text-ink"
+                style={{ overflowWrap: "break-word", wordBreak: "break-word", hyphens: "auto" }}
+                lang="en"
+              >
                 {doc.problemDescription?.trim() || "—"}
               </p>
             </Section>
