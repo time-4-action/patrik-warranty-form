@@ -4,6 +4,8 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { assertServerEnv } = await import("./lib/env");
     assertServerEnv();
+    const { assertNotificationsConfig } = await import("./lib/notifications-config");
+    assertNotificationsConfig();
     await import("../sentry.server.config");
   }
   if (process.env.NEXT_RUNTIME === "edge") {
