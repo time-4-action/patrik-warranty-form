@@ -369,7 +369,7 @@ const printCss = `
     padding-bottom: 4mm !important;
   }
   .doc-masthead { break-inside: avoid; page-break-inside: avoid; }
-  .doc-masthead img { height: 30px !important; }
+  .doc-masthead img { height: 52px !important; }
   .doc-section { break-inside: avoid; page-break-inside: avoid; }
   .upload-link { break-inside: avoid; page-break-inside: avoid; }
   .meta-strip { break-inside: avoid; page-break-inside: avoid; }
