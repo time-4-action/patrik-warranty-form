@@ -780,45 +780,34 @@ export function WarrantyForm() {
             </div>
 
             <SectionHeading>Uploads</SectionHeading>
-            <p className="-mt-3 mb-5 text-[12px] italic text-mute">
-                JPG / PNG / PDF accepted. Videos (MP4/MOV) limited to 25 MB.
-            </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <UploadCard
                     id="uploadInvoice"
                     label="Invoice / proof of purchase"
-                    accept="image/jpeg,image/png,application/pdf"
                     required
                     value={files.invoice}
                     onChange={(f) => setFiles((p) => ({ ...p, invoice: f }))}
-                    maxSizeMB={25}
                 />
                 <UploadCard
                     id="uploadSerial"
                     label="Photo of the serial number"
-                    accept="image/jpeg,image/png"
                     required
                     value={files.serial}
                     onChange={(f) => setFiles((p) => ({ ...p, serial: f }))}
-                    maxSizeMB={25}
                 />
                 <UploadCard
                     id="uploadFull"
                     label="Full-size product on the defected side"
-                    accept="image/jpeg,image/png,video/mp4,video/quicktime"
                     required
                     value={files.full}
                     onChange={(f) => setFiles((p) => ({ ...p, full: f }))}
-                    maxSizeMB={25}
                 />
                 <UploadCard
                     id="uploadCloseup"
                     label="Closeup view of the problem"
-                    accept="image/jpeg,image/png,video/mp4,video/quicktime"
                     required
                     value={files.closeup}
                     onChange={(f) => setFiles((p) => ({ ...p, closeup: f }))}
-                    maxSizeMB={25}
                 />
             </div>
 

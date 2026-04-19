@@ -54,8 +54,7 @@ export function UploadCard({
     setPreview(null);
   }, [value]);
 
-  const accept_ = accept ??
-    "image/jpeg,image/png,application/pdf,video/mp4,video/quicktime";
+  const accept_ = accept ?? "*/*";
 
   const handle = (file: File | null) => {
     setError(null);
