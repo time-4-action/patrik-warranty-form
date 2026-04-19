@@ -983,14 +983,14 @@ function SuccessModal({
                     type="button"
                     className="btn-send mt-6"
                     onClick={() => {
+                        if (submissionId) {
+                            window.location.href = `/warranty/${encodeURIComponent(submissionId)}`;
+                            return;
+                        }
                         onClose();
-                        window.close();
-                        setTimeout(() => {
-                            window.location.href = "https://www.patrikinternational.com/";
-                        }, 150);
                     }}
                 >
-                    Close
+                    {submissionId ? "View your receipt" : "Close"}
                 </button>
             </div>
         </div>,
