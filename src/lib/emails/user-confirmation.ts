@@ -19,11 +19,15 @@ export function buildUserConfirmation(
   const subject = `Your PATRIK warranty request`;
 
   const html = `<!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+</head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
-    <tr><td align="center">
-      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;">
+    <tr><td>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
         <tr><td style="padding:32px 32px 16px 32px;">
           <h1 style="margin:0 0 16px 0;font-size:20px;line-height:1.3;color:#18181b;">Thank you for your warranty claim</h1>
           <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;">

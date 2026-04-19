@@ -40,6 +40,9 @@ export function buildAdminNotification(
     ["Data policy accepted", payload.dataPolicyAccepted ? "yes" : "no"],
   ];
 
+  const valueCellStyle =
+    "padding:8px 12px;font-size:13px;color:#18181b;border-top:1px solid #e5e7eb;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;hyphens:auto;";
+
   const rowsHtml = rows
     .map(([label, value]) => {
       const isUrl = value.startsWith("http://") || value.startsWith("https://");
@@ -47,8 +50,8 @@ export function buildAdminNotification(
         ? `<a href="${esc(value)}" style="color:#2563eb;word-break:break-all;">${esc(value)}</a>`
         : esc(value) || "—";
       return `<tr>
-        <td style="padding:8px 12px;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;vertical-align:top;width:180px;">${esc(label)}</td>
-        <td style="padding:8px 12px;font-size:13px;color:#18181b;border-top:1px solid #e5e7eb;white-space:pre-wrap;">${cell}</td>
+        <td style="padding:8px 12px;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;vertical-align:top;width:160px;white-space:nowrap;">${esc(label)}</td>
+        <td style="${valueCellStyle}">${cell}</td>
       </tr>`;
     })
     .join("");
@@ -63,8 +66,8 @@ export function buildAdminNotification(
   const filesHtml = fileLabels
     .map(
       ([key, label]) => `<tr>
-        <td style="padding:8px 12px;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;vertical-align:top;width:180px;">${esc(label)}</td>
-        <td style="padding:8px 12px;font-size:13px;border-top:1px solid #e5e7eb;">
+        <td style="padding:8px 12px;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;vertical-align:top;width:160px;white-space:nowrap;">${esc(label)}</td>
+        <td style="${valueCellStyle}">
           <a href="${esc(payload.fileUrls[key])}" style="color:#2563eb;word-break:break-all;">${esc(payload.fileUrls[key])}</a>
         </td>
       </tr>`,
@@ -72,11 +75,15 @@ export function buildAdminNotification(
     .join("");
 
   const html = `<!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+</head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
-    <tr><td align="center">
-      <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border-radius:8px;overflow:hidden;">
+    <tr><td>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
         <tr><td style="padding:24px 32px 8px 32px;">
           <h1 style="margin:0 0 8px 0;font-size:18px;line-height:1.3;">New warranty claim</h1>
           <p style="margin:0 0 16px 0;font-size:13px;color:#6b7280;">
