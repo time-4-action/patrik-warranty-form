@@ -79,3 +79,24 @@ The form is gated by [Cloudflare Turnstile](https://www.cloudflare.com/products/
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (public, sent to the browser) |
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key (server-only, used to call siteverify) |
 | `TURNSTILE_SESSION_SECRET` | Random 32+ byte secret used to HMAC-sign session tokens. Generate with `openssl rand -base64 32` |
+
+## Email notifications
+
+On successful submission the server sends two transactional emails via SMTP (nodemailer):
+
+- **Customer confirmation** to the email from the form — thank-you, claim number, link to the receipt page.
+- **Admin notification** to everyone listed in `config/notifications.json → adminRecipients`, delivered via BCC so admins never see each other's addresses. `Reply-To` is the customer, so hitting reply goes back to them.
+
+Failures are logged + captured in Sentry but **do not fail the submission** (data is already persisted in Mongo + Sheets). The SMTP transport is verified by `GET /api/health` on every poll.
+
+To change admin recipients, edit `config/notifications.json` and redeploy.
+
+### Environment variables
+
+| Variable | Description |
+|---|---|
+| `SMTP_HOST` | SMTP server hostname (e.g. `smtp.your-host.com`) |
+| `SMTP_PORT` | `465` for SSL (implicit TLS) or `587` for STARTTLS — `secure` is derived automatically |
+| `SMTP_USER` | SMTP username (usually the mailbox address) |
+| `SMTP_PASSWORD` | SMTP password / app password |
+| `SMTP_FROM` | Sender, e.g. `"Patrik Warranty <noreply@patrik-windsurf.com>"` |

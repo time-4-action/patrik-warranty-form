@@ -8,7 +8,8 @@ What's done, what's deferred, and why each deferred item matters.
 - **Env validation at boot** via `src/instrumentation.ts` → `assertServerEnv()` (`src/lib/env.ts`). A missing var fails the server start, not the first user.
 - **Sentry** error tracking wired for client (`sentry.client.config.ts`), server (`sentry.server.config.ts`), edge (`sentry.edge.config.ts`), and route handlers (via `instrumentation.ts → onRequestError`). Inactive until `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` are set.
 - **Health check** at `GET /api/health` — pings Mongo, asserts Sheets and Turnstile env vars are set. Returns 200 / 503.
-- **Privacy / GPSR page** at `/privacy` — covers EU representative info (Creaglobe GmbH), GPSR / REACH / RoHS compliance statement, safety + maintenance instructions, and the data-deletion procedure (email `web@patrikinternational.com`). Linked from the consent checkbox in `WarrantyForm.tsx` and from the bottom of `/warranty`. Deletion is handled manually by Patrik staff against Mongo + the Hetzner bucket — acceptable at current claim volume; revisit if claim volume grows.
+- **Privacy / GPSR page** at `/privacy` — covers EU representative info (Creaglobe GmbH), GPSR / REACH / RoHS compliance statement, safety + maintenance instructions, and the data-deletion procedure (email `info@patrik-windsurf.com`). Linked from the consent checkbox in `WarrantyForm.tsx` and from the bottom of `/warranty`. Deletion is handled manually by Patrik staff against Mongo + the Hetzner bucket — acceptable at current claim volume; revisit if claim volume grows.
+- **Email notifications on new submission** — after the dual-write succeeds, `/api/warranty` sends two transactional emails via SMTP (nodemailer): a customer confirmation with claim number + receipt URL, and an admin notification with full submission details and links to the uploaded files. Admin recipients are listed in `config/notifications.json`. Failures are logged + captured in Sentry but do not fail the submission (data is already persisted). SMTP config lives in `SMTP_*` env vars; `/api/health` actively verifies the transport.
 
 ## Design decisions (intentionally not done)
 
@@ -17,13 +18,6 @@ What's done, what's deferred, and why each deferred item matters.
 ## Deferred
 
 Each item has a one-line problem, a one-line fix, and the reason it's not blocking.
-
-### Critical — schedule before broader launch
-
-- **Notification on new submission** *(item #1)*
-  - Problem: staff have to poll the Google Sheet to see new claims.
-  - Fix: in `src/app/api/warranty/route.ts`, after the dual-write succeeds, send an email (Resend) or post to a Slack webhook with the submission summary + receipt URL.
-  - Deferred because: needs a decision on email-vs-Slack and a sender domain / webhook URL.
 
 ### Operations
 
@@ -49,6 +43,5 @@ Each item has a one-line problem, a one-line fix, and the reason it's not blocki
 
 ### Nice to have
 
-- **Confirmation email to user** *(item #13)*: today the success modal is the only place the `submissionId` is shown. If the user closes it, the receipt URL is lost.
 - **Mongo backup** *(item #14)*: the instance is a single Hetzner VM. No replication, no nightly dump. Add `mongodump` to a cron, target an off-host bucket.
 - **Playwright happy-path test** *(item #15)*: covers form submit end-to-end. Lets you refactor the 900-line `WarrantyForm.tsx` confidently.

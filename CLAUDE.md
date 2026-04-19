@@ -14,6 +14,10 @@ Warranty registration form for Patrik windsurfing products. Built with Next.js 1
 - `src/app/api/turnstile-session/route.ts` — POST endpoint that verifies a Turnstile token via Cloudflare siteverify and returns a short-lived HMAC-signed session token.
 - `src/lib/turnstile.ts` — server-only helpers: `verifyTurnstileToken`, `issueSessionToken`, `verifySessionToken` (HMAC-SHA256, no JWT lib).
 - `src/lib/s3.ts` — AWS SDK v3 S3 client configured for Hetzner Object Storage.
+- `src/lib/mail.ts` — server-only nodemailer transport (lazy-initialised from `SMTP_*` env vars). Exports `sendMail` and `verifyTransport`.
+- `src/lib/notifications-config.ts` — loads `config/notifications.json` and asserts `adminRecipients` is non-empty at boot.
+- `src/lib/emails/user-confirmation.ts` / `src/lib/emails/admin-notification.ts` — build `{ subject, html, text }` for the two transactional emails sent on submission. Inline-styled HTML only, no external assets.
+- `config/notifications.json` — admin recipients list (edit + redeploy to change). Deliberately minimal — only the one knob that needs to vary without code change.
 
 ## File upload architecture
 
@@ -47,9 +51,24 @@ The `submissionId` binding means a single solved Turnstile yields a token usable
 
 Env vars: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (public), `TURNSTILE_SECRET_KEY` (server), `TURNSTILE_SESSION_SECRET` (server, HMAC key — generate with `openssl rand -base64 32`).
 
+## Email notifications
+
+On successful submission, `/api/warranty` sends two transactional emails in parallel (`Promise.allSettled`) via SMTP (nodemailer):
+
+1. **Customer confirmation** → `payload.email`. Thank-you, short claim id, product + serial, submission time, link to `${BASE_URL}/warranty/<submissionId>`.
+2. **Admin notification** → everyone in `config/notifications.json → adminRecipients`, delivered via **BCC** so admins never see each other's addresses. `to` is set to `SMTP_FROM` (needed because some SMTP servers / spam filters reject mail with no visible `To:`). `replyTo` is set to the customer's email so hitting reply goes back to the customer.
+
+Failure handling is **fire-and-forget** — if SMTP is down or credentials are wrong, errors are logged via `console.error` + `Sentry.captureException`, and the endpoint still returns `{ ok: true, submissionId }`. The submission is already persisted in Mongo + Sheets; failing the request would produce duplicate submissions and an inconsistent state.
+
+Transport setup lives in `src/lib/mail.ts` (lazy — first `sendMail`/`verifyTransport` call creates the transporter; `secure: true` is derived automatically when `SMTP_PORT === 465`). Templates are plain inline-styled HTML plus a plain-text fallback — no templating lib, no external images/fonts, safe across Gmail / Outlook / Apple Mail. User-supplied values are HTML-escaped via `src/lib/emails/_html.ts` before being interpolated.
+
+`/api/health` actively calls `verifyTransport()` (real SMTP `NOOP`), matching the Mongo ping style — not just env-var presence.
+
+Env vars: `SMTP_HOST`, `SMTP_PORT` (465 = SSL, 587 = STARTTLS), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` (e.g. `"Patrik Warranty <noreply@patrik-windsurf.com>"`). All required at boot.
+
 ## Production infrastructure
 
-- **Boot-time env validation** — `src/instrumentation.ts` runs `assertServerEnv()` from `src/lib/env.ts` when the Node runtime starts. A missing required var throws and the server fails to start, instead of crashing on the first user request.
-- **`GET /api/health`** — pings Mongo and asserts presence of Sheets + Turnstile env vars. Returns `200 { status: "ok", checks }` or `503 { status: "degraded", checks }`. Use it for uptime monitoring.
+- **Boot-time env validation** — `src/instrumentation.ts` runs `assertServerEnv()` from `src/lib/env.ts` and `assertNotificationsConfig()` from `src/lib/notifications-config.ts` when the Node runtime starts. A missing required env var or an empty `adminRecipients` array throws and the server fails to start, instead of crashing on the first user request.
+- **`GET /api/health`** — pings Mongo, verifies the SMTP transport, asserts presence of Sheets + Turnstile env vars. Returns `200 { status: "ok", checks }` or `503 { status: "degraded", checks }`. Use it for uptime monitoring.
 - **Sentry** — `sentry.{client,server,edge}.config.ts` plus `instrumentation.ts → onRequestError`. All `init()` calls are gated on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` — leave them unset locally and Sentry stays inactive. `next.config.ts` is wrapped in `withSentryConfig` for source-map upload (needs `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` at build time only).
-- **Roadmap** — `docs/PRODUCTION.md` tracks deferred production items (notifications, GDPR, private bucket, CI, indexes, CSP, etc.) with a one-line problem/fix/reason for each.
+- **Roadmap** — `docs/PRODUCTION.md` tracks deferred production items (CI, indexes, CSP, Mongo backup, etc.) with a one-line problem/fix/reason for each.
