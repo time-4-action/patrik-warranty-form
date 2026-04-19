@@ -4,7 +4,7 @@ import { buildUserConfirmation } from "@/lib/emails/user-confirmation";
 import { appendWarrantyRow } from "@/lib/google-sheets";
 import { sendMail } from "@/lib/mail";
 import { getNotificationsConfig } from "@/lib/notifications-config";
-import { verifySessionToken } from "@/lib/turnstile";
+import { consumeSubmissionAttempt, getClientIp } from "@/lib/rate-limit";
 import { insertWarrantyDoc } from "@/lib/warranty-mongo";
 import type { WarrantyPayload } from "@/types/warranty";
 
@@ -26,12 +26,20 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    const session = verifySessionToken(
-      request.headers.get("x-session-token"),
-      payload.submissionId,
-    );
-    if (!session.ok) {
-      return Response.json({ error: "Bot check required" }, { status: 401 });
+    const ip = getClientIp(request.headers);
+    const rl = await consumeSubmissionAttempt(`warranty:${ip}`);
+    if (!rl.allowed) {
+      return Response.json(
+        {
+          error: "rate-limited",
+          limit: rl.limit,
+          retryAfterSeconds: rl.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rl.retryAfterSeconds) },
+        },
+      );
     }
 
     const submittedAt = new Date().toISOString();

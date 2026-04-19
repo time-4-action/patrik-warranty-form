@@ -4,10 +4,10 @@ What's done, what's deferred, and why each deferred item matters.
 
 ## Done
 
-- **Cloudflare Turnstile** gates `/api/upload-url` and `/api/warranty`. Session token is bound to a single `submissionId` so it can't be replayed across submissions.
+- **IP rate limiting** gates `/api/warranty` and `/api/upload-url` via a Mongo-backed sliding window (`src/lib/rate-limit.ts`). Per-endpoint buckets (`warranty:<ip>`, `upload:<ip>`) keep upload traffic from consuming the submission budget. 429 responses carry `retryAfterSeconds` and are surfaced through `RateLimitModal`.
 - **Env validation at boot** via `src/instrumentation.ts` → `assertServerEnv()` (`src/lib/env.ts`). A missing var fails the server start, not the first user.
 - **Sentry** error tracking wired for client (`sentry.client.config.ts`), server (`sentry.server.config.ts`), edge (`sentry.edge.config.ts`), and route handlers (via `instrumentation.ts → onRequestError`). Inactive until `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` are set.
-- **Health check** at `GET /api/health` — pings Mongo, asserts Sheets and Turnstile env vars are set. Returns 200 / 503.
+- **Health check** at `GET /api/health` — pings Mongo, verifies SMTP transport, asserts Sheets env vars are set. Returns 200 / 503.
 - **Privacy / GPSR page** at `/privacy` — covers EU representative info (Creaglobe GmbH), GPSR / REACH / RoHS compliance statement, safety + maintenance instructions, and the data-deletion procedure (email `info@patrik-windsurf.com`). Linked from the consent checkbox in `WarrantyForm.tsx` and from the bottom of `/warranty`. Deletion is handled manually by Patrik staff against Mongo + the Hetzner bucket — acceptable at current claim volume; revisit if claim volume grows.
 - **Email notifications on new submission** — after the dual-write succeeds, `/api/warranty` sends two transactional emails via SMTP (nodemailer): a customer confirmation with claim number + receipt URL, and an admin notification with full submission details and links to the uploaded files. Admin recipients are listed in `config/notifications.json`. Failures are logged + captured in Sentry but do not fail the submission (data is already persisted). SMTP config lives in `SMTP_*` env vars; `/api/health` actively verifies the transport.
 
@@ -30,16 +30,16 @@ Each item has a one-line problem, a one-line fix, and the reason it's not blocki
   - Fix: one-time `db.warranty.createIndex({ submissionId: 1 }, { unique: true })`. Or call `createIndex` from `src/lib/mongo.ts` on first use.
 
 - **CORS allowlist on protected endpoints** *(item #10)*
-  - Problem: `/api/upload-url` and `/api/warranty` are origin-agnostic — only the session token gates them.
+  - Problem: `/api/upload-url` and `/api/warranty` are origin-agnostic — only IP rate limiting gates them.
   - Fix: in `next.config.ts`, add a `headers()` block returning `Access-Control-Allow-Origin` only for the production origin(s).
 
 - **Server-side file validation** *(item #11)*
-  - Problem: recent commit allows uploads of any size and type. With a public bucket, a session-token-holder could host arbitrary files at the patrikinternational domain.
+  - Problem: recent commit allows uploads of any size and type. With a public bucket, a caller who hasn't been rate-limited yet could host arbitrary files at the patrikinternational domain.
   - Fix: in `src/app/api/upload-url/route.ts`, validate `contentType` against an allowlist (`image/*`, `application/pdf`) and enforce a max size (~25 MB). Real S3-side enforcement requires a presigned POST policy instead of presigned PUT.
 
 - **Security headers (CSP etc.)** *(item #12)*
   - Problem: no Content-Security-Policy, HSTS, X-Frame-Options.
-  - Fix: `next.config.ts → headers()` returning a CSP allowlist for Mapbox + Cloudflare Turnstile + Google Sheets domains, plus `Strict-Transport-Security` and `X-Frame-Options: DENY`.
+  - Fix: `next.config.ts → headers()` returning a CSP allowlist for Mapbox + Google Sheets domains, plus `Strict-Transport-Security` and `X-Frame-Options: DENY`.
 
 ### Nice to have
 

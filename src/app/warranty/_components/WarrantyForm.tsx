@@ -6,11 +6,9 @@ import { CustomSelect, DatePicker } from "./Pickers";
 import { UploadCard } from "./UploadCard";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { ProductNameAutocomplete } from "./ProductNameAutocomplete";
+import { RateLimitModal } from "./RateLimitModal";
 import { SubmittingOverlay, type SubmitStage } from "./SubmittingOverlay";
-import { TurnstileWidget, type TurnstileWidgetHandle } from "./TurnstileWidget";
 import type { WarrantyPayload } from "@/types/warranty";
-
-const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 const COUNTRIES = [
     "Afghanistan",
@@ -248,20 +246,35 @@ const PRODUCT_CATEGORIES = [
 const PROBLEM_MIN = 25;
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+class RateLimitError extends Error {
+  constructor(
+    public info: { limit: number; retryAfterSeconds: number },
+  ) {
+    super("rate-limited");
+    this.name = "RateLimitError";
+  }
+}
+
 async function uploadFile(
   submissionId: string,
   slot: string,
   file: File,
-  sessionToken: string,
 ): Promise<string> {
   const res = await fetch("/api/upload-url", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-session-token": sessionToken,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ submissionId, slot, filename: file.name, contentType: file.type }),
   });
+  if (res.status === 429) {
+    const body = (await res.json().catch(() => ({}))) as {
+      limit?: number;
+      retryAfterSeconds?: number;
+    };
+    throw new RateLimitError({
+      limit: body.limit ?? 5,
+      retryAfterSeconds: Math.max(1, body.retryAfterSeconds ?? 3600),
+    });
+  }
   if (!res.ok) throw new Error("Failed to get upload URL");
   const { presignedUrl, publicUrl } = await res.json();
   const put = await fetch(presignedUrl, {
@@ -386,6 +399,9 @@ export function WarrantyForm() {
     const [lastSubmissionId, setLastSubmissionId] = useState<string | null>(null);
     const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
     const [stages, setStages] = useState<SubmitStage[]>([]);
+    const [rateLimited, setRateLimited] = useState<
+      { limit: number; retryAfterSeconds: number } | null
+    >(null);
 
     const [typeOfPartner, setTypeOfPartner] = useState("");
     const [countryOfPurchase, setCountryOfPurchase] = useState("");
@@ -393,8 +409,6 @@ export function WarrantyForm() {
     const [ean, setEan] = useState("");
     const [dataPolicyAccepted, setDataPolicyAccepted] = useState(false);
     const [attemptedSubmit, setAttemptedSubmit] = useState(false);
-    const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-    const turnstileRef = useRef<TurnstileWidgetHandle | null>(null);
 
     const [textFields, setTextFields] = useState({
         name: "",
@@ -476,8 +490,7 @@ export function WarrantyForm() {
         !!failureDate &&
         problemOk &&
         allFilesPresent &&
-        dataPolicyAccepted &&
-        !!turnstileToken;
+        dataPolicyAccepted;
 
     const missingFields = (): { id: string; label: string }[] => {
         const m: { id: string; label: string }[] = [];
@@ -500,7 +513,6 @@ export function WarrantyForm() {
         if (!files.full) m.push({ id: "uploadFull", label: "Full product photo" });
         if (!files.closeup) m.push({ id: "uploadCloseup", label: "Closeup photo" });
         if (!dataPolicyAccepted) m.push({ id: "dataPolicy", label: "Data Policy agreement" });
-        if (!turnstileToken) m.push({ id: "turnstile", label: "Bot check" });
         return m;
     };
 
@@ -528,25 +540,6 @@ export function WarrantyForm() {
         const formEl = e.currentTarget;
         const submissionId = crypto.randomUUID();
 
-        let sessionToken: string;
-        try {
-            const sessionRes = await fetch("/api/turnstile-session", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ turnstileToken, submissionId }),
-            });
-            if (!sessionRes.ok) throw new Error("session-failed");
-            const sessionBody = (await sessionRes.json()) as { sessionToken?: string };
-            if (!sessionBody.sessionToken) throw new Error("session-failed");
-            sessionToken = sessionBody.sessionToken;
-        } catch {
-            setSubmitError("Bot check failed, please try again");
-            turnstileRef.current?.reset();
-            setTurnstileToken(null);
-            setSubmitting(false);
-            return;
-        }
-
         setActiveSubmissionId(submissionId);
         const initialStages: SubmitStage[] = [
             { key: "invoice", label: "Invoice / proof of purchase", status: "pending" },
@@ -570,7 +563,7 @@ export function WarrantyForm() {
             for (const [slot, file] of fileEntries) {
                 if (file) {
                     setStage(slot, "active");
-                    uploads[slot] = await uploadFile(submissionId, slot, file, sessionToken);
+                    uploads[slot] = await uploadFile(submissionId, slot, file);
                     setStage(slot, "done");
                 }
             }
@@ -607,12 +600,20 @@ export function WarrantyForm() {
 
             const res = await fetch("/api/warranty", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-session-token": sessionToken,
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
+            if (res.status === 429) {
+                const body = (await res.json().catch(() => ({}))) as {
+                    limit?: number;
+                    retryAfterSeconds?: number;
+                };
+                setRateLimited({
+                    limit: body.limit ?? 5,
+                    retryAfterSeconds: Math.max(1, body.retryAfterSeconds ?? 3600),
+                });
+                return;
+            }
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
                 throw new Error(
@@ -653,13 +654,15 @@ export function WarrantyForm() {
             setLastSubmissionId(confirmedSubmissionId);
             setSubmitSuccess(true);
         } catch (err) {
-            setSubmitError(err instanceof Error ? err.message : "Submission failed");
+            if (err instanceof RateLimitError) {
+                setRateLimited(err.info);
+            } else {
+                setSubmitError(err instanceof Error ? err.message : "Submission failed");
+            }
         } finally {
             setSubmitting(false);
             setStages([]);
             setActiveSubmissionId(null);
-            turnstileRef.current?.reset();
-            setTurnstileToken(null);
         }
     }
 
@@ -902,21 +905,7 @@ export function WarrantyForm() {
                 </label>
             </div>
 
-            <div
-                id="turnstile"
-                className="mt-10 flex flex-col items-center gap-4 text-center"
-            >
-                {TURNSTILE_SITE_KEY ? (
-                    <TurnstileWidget
-                        ref={turnstileRef}
-                        siteKey={TURNSTILE_SITE_KEY}
-                        onToken={setTurnstileToken}
-                    />
-                ) : (
-                    <p className="text-[12px] text-red-600">
-                        Bot check is not configured (NEXT_PUBLIC_TURNSTILE_SITE_KEY missing)
-                    </p>
-                )}
+            <div className="mt-10 flex flex-col items-center gap-4 text-center">
                 <button
                     type="submit"
                     className={`btn-send ${!formValid && !submitting ? "is-muted" : ""}`}
@@ -964,6 +953,13 @@ export function WarrantyForm() {
           <SuccessModal
             submissionId={lastSubmissionId}
             onClose={() => setSubmitSuccess(false)}
+          />
+        )}
+        {rateLimited && (
+          <RateLimitModal
+            limit={rateLimited.limit}
+            retryAfterSeconds={rateLimited.retryAfterSeconds}
+            onClose={() => setRateLimited(null)}
           />
         )}
       </>

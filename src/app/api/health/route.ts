@@ -30,15 +30,6 @@ function checkSheetsConfig(): CheckResult {
   return { ok: true };
 }
 
-function checkTurnstileConfig(): CheckResult {
-  const required = ["TURNSTILE_SECRET_KEY", "TURNSTILE_SESSION_SECRET"];
-  const missing = required.filter((name) => !process.env[name]);
-  if (missing.length > 0) {
-    return { ok: false, error: `missing env: ${missing.join(", ")}` };
-  }
-  return { ok: true };
-}
-
 async function checkSmtp(): Promise<CheckResult> {
   try {
     await verifyTransport();
@@ -52,7 +43,6 @@ export async function GET() {
   const checks = {
     mongo: await checkMongo(),
     sheets: checkSheetsConfig(),
-    turnstile: checkTurnstileConfig(),
     smtp: await checkSmtp(),
   };
   const allOk = Object.values(checks).every((c) => c.ok);

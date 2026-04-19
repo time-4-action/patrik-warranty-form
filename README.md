@@ -68,17 +68,16 @@ aws s3api put-bucket-cors --bucket patrik-assets --cors-configuration file://cor
 
 `cors.json` is committed to the repo root.
 
-## Bot protection (Cloudflare Turnstile)
+## Abuse protection (rate limiting)
 
-The form is gated by [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/). The browser solves a Turnstile challenge, exchanges the resulting token at `POST /api/turnstile-session` for a short-lived HMAC-signed session token (~30 min), then passes that session token in the `x-session-token` header on every call to `/api/upload-url` and `/api/warranty`. Both endpoints reject requests with a missing, expired, or tampered session token.
+`/api/warranty` and `/api/upload-url` are IP-rate-limited via a Mongo-backed sliding window. The caller's IP is resolved from `cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`, and each endpoint has its own bucket:
 
-### Environment variables
+- **Warranty submissions** — `SUBMISSION_LIMIT` (default 5) per rolling hour.
+- **Presigned upload URLs** — `SUBMISSION_LIMIT × 4 × 2` (default 40) per rolling hour, so 4 slots per submission fit with retry headroom.
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (public, sent to the browser) |
-| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key (server-only, used to call siteverify) |
-| `TURNSTILE_SESSION_SECRET` | Random 32+ byte secret used to HMAC-sign session tokens. Generate with `openssl rand -base64 32` |
+When the limit is hit the endpoint returns `429 { error: "rate-limited", limit, retryAfterSeconds }` plus a `Retry-After` header. The frontend catches 429 from either endpoint and surfaces `RateLimitModal`, which live-counts the remaining time. A TTL index on the `rate_limits` collection auto-prunes idle IPs.
+
+To tune the limits, edit `SUBMISSION_LIMIT` / `UPLOAD_LIMIT` / `WINDOW_MS` in `src/lib/rate-limit.ts`.
 
 ## Email notifications
 

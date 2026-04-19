@@ -8,11 +8,10 @@ Warranty registration form for Patrik windsurfing products. Built with Next.js 1
 
 - `src/app/warranty/_components/WarrantyForm.tsx` — the main form (client component). Handles all state, validation, file upload orchestration, and submit logic.
 - `src/app/warranty/_components/UploadCard.tsx` — drag-and-drop file picker card used for the 4 upload slots.
-- `src/app/warranty/_components/TurnstileWidget.tsx` — Cloudflare Turnstile widget wrapper. Loads the script once at module level and exposes `render` / `reset` via a forwarded ref.
-- `src/app/api/upload-url/route.ts` — POST endpoint that generates presigned S3 PUT URLs. Called once per file on submit. Requires a valid `x-session-token` header.
-- `src/app/api/warranty/route.ts` — POST endpoint that persists the warranty submission to Google Sheets + MongoDB. Requires a valid `x-session-token` header.
-- `src/app/api/turnstile-session/route.ts` — POST endpoint that verifies a Turnstile token via Cloudflare siteverify and returns a short-lived HMAC-signed session token.
-- `src/lib/turnstile.ts` — server-only helpers: `verifyTurnstileToken`, `issueSessionToken`, `verifySessionToken` (HMAC-SHA256, no JWT lib).
+- `src/app/warranty/_components/RateLimitModal.tsx` — branded modal shown when `/api/warranty` or `/api/upload-url` return 429. Live-counts the retry time and explains why the limit exists.
+- `src/app/api/upload-url/route.ts` — POST endpoint that generates presigned S3 PUT URLs. Called once per file on submit. IP rate-limited via `consumeSubmissionAttempt`.
+- `src/app/api/warranty/route.ts` — POST endpoint that persists the warranty submission to Google Sheets + MongoDB. IP rate-limited via `consumeSubmissionAttempt`.
+- `src/lib/rate-limit.ts` — Mongo-backed sliding-window rate limiter. Exports `consumeSubmissionAttempt`, `getClientIp`, and the `SUBMISSION_LIMIT` / `UPLOAD_LIMIT` / `WINDOW_MS` constants.
 - `src/lib/s3.ts` — AWS SDK v3 S3 client configured for Hetzner Object Storage.
 - `src/lib/mail.ts` — server-only nodemailer transport (lazy-initialised from `SMTP_*` env vars). Exports `sendMail` and `verifyTransport`.
 - `src/lib/notifications-config.ts` — loads `config/notifications.json` and asserts `adminRecipients` is non-empty at boot.
@@ -37,19 +36,18 @@ The `submissionId` groups all 4 files for one warranty claim under the same path
 - `requestChecksumCalculation: "when_required"` — disables CRC32 checksums that Hetzner doesn't support
 - CORS rule in `cors.json` must be applied to the bucket (see README)
 
-## Bot protection (Cloudflare Turnstile)
+## Abuse protection (rate limiting)
 
-Both `/api/upload-url` and `/api/warranty` are gated by an `x-session-token` header. One Turnstile token can only be verified once with Cloudflare, but a single submission needs 5 protected calls (4 uploads + 1 warranty POST), so we exchange the Turnstile token up front for a server-issued session token that's reused.
+`/api/warranty` and `/api/upload-url` are both gated by a Mongo-backed sliding-window rate limiter keyed on the caller's IP (`cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`). Keys are namespaced per endpoint (`warranty:<ip>`, `upload:<ip>`) so upload activity doesn't consume the submission budget and vice-versa.
 
-On submit:
+Limits (see `src/lib/rate-limit.ts`):
 
-1. Browser generates `submissionId` and solves Turnstile → gets `turnstileToken`.
-2. Browser POSTs `{ turnstileToken, submissionId }` to `/api/turnstile-session` → server calls Cloudflare siteverify and returns `{ sessionToken, expiresAt }`. Token format: `<submissionId>.<exp>.<nonce>.<base64url(HMAC-SHA256)>`, ~30 min TTL.
-3. Browser sends `sessionToken` in `x-session-token` on every `/api/upload-url` call and the final `/api/warranty` POST. Both endpoints recompute the HMAC against the request's own `submissionId` and reject missing/expired/tampered/cross-submission tokens with 401.
+- `SUBMISSION_LIMIT` — 5 successful `/api/warranty` attempts per rolling hour.
+- `UPLOAD_LIMIT` — `SUBMISSION_LIMIT × 4 × 2` presigned URLs per rolling hour (4 slots per submission + headroom for retries).
 
-The `submissionId` binding means a single solved Turnstile yields a token usable for exactly one warranty (the 4 uploads + 1 POST that share that id) — it can't be replayed against a different submission.
+Both endpoints return `429 { error: "rate-limited", limit, retryAfterSeconds }` with a matching `Retry-After` header when blocked. The frontend maps 429 from either endpoint into `RateLimitModal`, which live-counts the retry time.
 
-Env vars: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (public), `TURNSTILE_SECRET_KEY` (server), `TURNSTILE_SESSION_SECRET` (server, HMAC key — generate with `openssl rand -base64 32`).
+A TTL index on `updatedAt` auto-expires idle IPs after `2 × WINDOW_MS`, so the `rate_limits` collection stays small without a cron job.
 
 ## Email notifications
 
@@ -69,6 +67,6 @@ Env vars: `SMTP_HOST`, `SMTP_PORT` (465 = SSL, 587 = STARTTLS), `SMTP_USER`, `SM
 ## Production infrastructure
 
 - **Boot-time env validation** — `src/instrumentation.ts` runs `assertServerEnv()` from `src/lib/env.ts` and `assertNotificationsConfig()` from `src/lib/notifications-config.ts` when the Node runtime starts. A missing required env var or an empty `adminRecipients` array throws and the server fails to start, instead of crashing on the first user request.
-- **`GET /api/health`** — pings Mongo, verifies the SMTP transport, asserts presence of Sheets + Turnstile env vars. Returns `200 { status: "ok", checks }` or `503 { status: "degraded", checks }`. Use it for uptime monitoring.
+- **`GET /api/health`** — pings Mongo, verifies the SMTP transport, asserts presence of Sheets env vars. Returns `200 { status: "ok", checks }` or `503 { status: "degraded", checks }`. Use it for uptime monitoring.
 - **Sentry** — `sentry.{client,server,edge}.config.ts` plus `instrumentation.ts → onRequestError`. All `init()` calls are gated on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` — leave them unset locally and Sentry stays inactive. `next.config.ts` is wrapped in `withSentryConfig` for source-map upload (needs `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` at build time only).
 - **Roadmap** — `docs/PRODUCTION.md` tracks deferred production items (CI, indexes, CSP, Mongo backup, etc.) with a one-line problem/fix/reason for each.
