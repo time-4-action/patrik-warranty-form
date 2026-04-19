@@ -42,7 +42,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const submittedAt = new Date().toISOString();
+    const submittedAt = (() => {
+      const d = new Date();
+      const p = (n: number) => String(n).padStart(2, "0");
+      return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+    })();
 
     const [sheetResult, mongoResult] = await Promise.allSettled([
       appendWarrantyRow(payload, submittedAt),
