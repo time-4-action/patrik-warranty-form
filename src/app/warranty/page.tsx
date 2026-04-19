@@ -57,6 +57,19 @@ export default function WarrantyPage() {
             circumstances. We will only contact you once your valid request
             has been reviewed.
           </p>
+          <p className="text-[13px] leading-[1.7] text-ink-2">
+            This form is for shops, partners and team riders.{" "}
+            <strong className="font-semibold text-ink">End customers</strong>{" "}
+            should return their product to the shop where it was purchased.
+            Read the{" "}
+            <Link
+              href="/terms"
+              className="text-cyan-3 underline-offset-2 hover:underline"
+            >
+              full warranty terms &amp; conditions
+            </Link>
+            .
+          </p>
         </div>
 
         {/* Signature */}
@@ -89,6 +102,13 @@ export default function WarrantyPage() {
             className="font-display uppercase tracking-[0.2em] transition-colors hover:text-cyan"
           >
             Privacy &amp; Data Policy
+          </Link>
+          <span className="text-rule-2">|</span>
+          <Link
+            href="/terms"
+            className="font-display uppercase tracking-[0.2em] transition-colors hover:text-cyan"
+          >
+            Warranty Terms
           </Link>
         </p>
       </section>
