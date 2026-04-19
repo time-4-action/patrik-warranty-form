@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { findWarrantyBySubmissionId } from "@/lib/warranty-mongo";
@@ -30,27 +29,7 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
 
       <div className="doc-outer min-h-full bg-bg-2 py-5 sm:py-12">
         {/* Action bar — hidden when printing */}
-        <div className="no-print mx-auto mb-4 flex max-w-[820px] flex-wrap items-center justify-between gap-3 px-5 sm:mb-6 sm:gap-4 sm:px-6">
-          <Link
-            href="/warranty"
-            className="inline-flex items-center gap-2 text-[12.5px] text-ink-2 transition-colors hover:text-ink"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M19 12H5" />
-              <path d="m12 19-7-7 7-7" />
-            </svg>
-            Back to warranty form
-          </Link>
+        <div className="no-print mx-auto mb-4 flex max-w-[820px] justify-end px-5 sm:mb-6 sm:px-6">
           <PrintButton />
         </div>
 
