@@ -167,9 +167,12 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
           </div>
         </article>
 
-        <p className="no-print mx-auto mt-4 max-w-[820px] px-5 text-center text-[11px] text-mute sm:mt-6 sm:px-6">
-          Tip — use the Print button above, then choose &ldquo;Save as
-          PDF&rdquo;.
+        <div className="no-print mx-auto mt-4 flex max-w-[820px] justify-end px-5 sm:mt-6 sm:px-6">
+          <PrintButton />
+        </div>
+
+        <p className="no-print mx-auto mt-3 max-w-[820px] px-5 text-center text-[11px] text-mute sm:px-6">
+          Tip — use the Print button, then choose &ldquo;Save as PDF&rdquo;.
         </p>
       </div>
     </>
