@@ -8,11 +8,6 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   let payload: WarrantyPayload | undefined;
   try {
-    const session = verifySessionToken(request.headers.get("x-session-token"));
-    if (!session.ok) {
-      return Response.json({ error: "Bot check required" }, { status: 401 });
-    }
-
     payload = (await request.json()) as WarrantyPayload;
 
     if (
@@ -24,6 +19,14 @@ export async function POST(request: Request) {
       !payload?.fileUrls?.closeup
     ) {
       return Response.json({ error: "Invalid payload" }, { status: 400 });
+    }
+
+    const session = verifySessionToken(
+      request.headers.get("x-session-token"),
+      payload.submissionId,
+    );
+    if (!session.ok) {
+      return Response.json({ error: "Bot check required" }, { status: 401 });
     }
 
     const submittedAt = new Date().toISOString();

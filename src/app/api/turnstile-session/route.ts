@@ -1,15 +1,23 @@
-import { issueSessionToken, verifyTurnstileToken } from "@/lib/turnstile";
+import {
+  isValidSubmissionId,
+  issueSessionToken,
+  verifyTurnstileToken,
+} from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const { turnstileToken } = (await request.json()) as {
+    const { turnstileToken, submissionId } = (await request.json()) as {
       turnstileToken?: string;
+      submissionId?: string;
     };
 
     if (!turnstileToken) {
       return Response.json({ error: "Missing turnstile token" }, { status: 400 });
+    }
+    if (!isValidSubmissionId(submissionId)) {
+      return Response.json({ error: "Invalid submissionId" }, { status: 400 });
     }
 
     const remoteIp =
@@ -23,7 +31,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "Bot check failed" }, { status: 400 });
     }
 
-    const { token, expiresAt } = issueSessionToken();
+    const { token, expiresAt } = issueSessionToken(submissionId);
     return Response.json({ sessionToken: token, expiresAt });
   } catch (err) {
     console.error("turnstile-session failed", err);

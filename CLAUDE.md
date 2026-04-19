@@ -39,8 +39,17 @@ Both `/api/upload-url` and `/api/warranty` are gated by an `x-session-token` hea
 
 On submit:
 
-1. Browser solves Turnstile → gets `turnstileToken`.
-2. Browser POSTs `{ turnstileToken }` to `/api/turnstile-session` → server calls Cloudflare siteverify and returns `{ sessionToken, expiresAt }`. Token format: `<exp>.<nonce>.<base64url(HMAC-SHA256)>`, ~30 min TTL.
-3. Browser sends `sessionToken` in `x-session-token` on every `/api/upload-url` call and the final `/api/warranty` POST. Both endpoints reject missing/expired/tampered tokens with 401.
+1. Browser generates `submissionId` and solves Turnstile → gets `turnstileToken`.
+2. Browser POSTs `{ turnstileToken, submissionId }` to `/api/turnstile-session` → server calls Cloudflare siteverify and returns `{ sessionToken, expiresAt }`. Token format: `<submissionId>.<exp>.<nonce>.<base64url(HMAC-SHA256)>`, ~30 min TTL.
+3. Browser sends `sessionToken` in `x-session-token` on every `/api/upload-url` call and the final `/api/warranty` POST. Both endpoints recompute the HMAC against the request's own `submissionId` and reject missing/expired/tampered/cross-submission tokens with 401.
+
+The `submissionId` binding means a single solved Turnstile yields a token usable for exactly one warranty (the 4 uploads + 1 POST that share that id) — it can't be replayed against a different submission.
 
 Env vars: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (public), `TURNSTILE_SECRET_KEY` (server), `TURNSTILE_SESSION_SECRET` (server, HMAC key — generate with `openssl rand -base64 32`).
+
+## Production infrastructure
+
+- **Boot-time env validation** — `src/instrumentation.ts` runs `assertServerEnv()` from `src/lib/env.ts` when the Node runtime starts. A missing required var throws and the server fails to start, instead of crashing on the first user request.
+- **`GET /api/health`** — pings Mongo and asserts presence of Sheets + Turnstile env vars. Returns `200 { status: "ok", checks }` or `503 { status: "degraded", checks }`. Use it for uptime monitoring.
+- **Sentry** — `sentry.{client,server,edge}.config.ts` plus `instrumentation.ts → onRequestError`. All `init()` calls are gated on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` — leave them unset locally and Sentry stays inactive. `next.config.ts` is wrapped in `withSentryConfig` for source-map upload (needs `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` at build time only).
+- **Roadmap** — `docs/PRODUCTION.md` tracks deferred production items (notifications, GDPR, private bucket, CI, indexes, CSP, etc.) with a one-line problem/fix/reason for each.

@@ -526,13 +526,14 @@ export function WarrantyForm() {
         setAttemptedSubmit(false);
         setSubmitting(true);
         const formEl = e.currentTarget;
+        const submissionId = crypto.randomUUID();
 
         let sessionToken: string;
         try {
             const sessionRes = await fetch("/api/turnstile-session", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ turnstileToken }),
+                body: JSON.stringify({ turnstileToken, submissionId }),
             });
             if (!sessionRes.ok) throw new Error("session-failed");
             const sessionBody = (await sessionRes.json()) as { sessionToken?: string };
@@ -546,7 +547,6 @@ export function WarrantyForm() {
             return;
         }
 
-        const submissionId = crypto.randomUUID();
         setActiveSubmissionId(submissionId);
         const initialStages: SubmitStage[] = [
             { key: "invoice", label: "Invoice / proof of purchase", status: "pending" },

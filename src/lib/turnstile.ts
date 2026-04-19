@@ -70,32 +70,53 @@ export type IssuedSessionToken = {
   expiresAt: number;
 };
 
+const SUBMISSION_ID_RX = /^[a-zA-Z0-9-]{8,64}$/;
+
+export function isValidSubmissionId(value: unknown): value is string {
+  return typeof value === "string" && SUBMISSION_ID_RX.test(value);
+}
+
 export function issueSessionToken(
+  submissionId: string,
   ttlSeconds: number = DEFAULT_SESSION_TTL_SECONDS,
 ): IssuedSessionToken {
+  if (!isValidSubmissionId(submissionId)) {
+    throw new Error("invalid submissionId");
+  }
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
   const nonce = base64url(randomBytes(12));
-  const payload = `${exp}.${nonce}`;
+  const payload = `${submissionId}.${exp}.${nonce}`;
   const signature = sign(payload);
   return { token: `${payload}.${signature}`, expiresAt: exp };
 }
 
 export type SessionVerifyResult =
-  | { ok: true; expiresAt: number }
-  | { ok: false; reason: "malformed" | "expired" | "bad_signature" };
+  | { ok: true; submissionId: string; expiresAt: number }
+  | {
+      ok: false;
+      reason: "malformed" | "expired" | "bad_signature" | "submission_mismatch";
+    };
 
-export function verifySessionToken(token: string | null | undefined): SessionVerifyResult {
+export function verifySessionToken(
+  token: string | null | undefined,
+  expectedSubmissionId?: string,
+): SessionVerifyResult {
   if (!token) return { ok: false, reason: "malformed" };
   const parts = token.split(".");
-  if (parts.length !== 3) return { ok: false, reason: "malformed" };
+  if (parts.length !== 4) return { ok: false, reason: "malformed" };
 
-  const [expStr, nonce, signature] = parts;
+  const [submissionId, expStr, nonce, signature] = parts;
   const exp = Number(expStr);
-  if (!Number.isFinite(exp) || !nonce || !signature) {
+  if (
+    !isValidSubmissionId(submissionId) ||
+    !Number.isFinite(exp) ||
+    !nonce ||
+    !signature
+  ) {
     return { ok: false, reason: "malformed" };
   }
 
-  const expected = sign(`${expStr}.${nonce}`);
+  const expected = sign(`${submissionId}.${expStr}.${nonce}`);
   const a = Buffer.from(signature);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
@@ -106,5 +127,9 @@ export function verifySessionToken(token: string | null | undefined): SessionVer
     return { ok: false, reason: "expired" };
   }
 
-  return { ok: true, expiresAt: exp };
+  if (expectedSubmissionId && submissionId !== expectedSubmissionId) {
+    return { ok: false, reason: "submission_mismatch" };
+  }
+
+  return { ok: true, submissionId, expiresAt: exp };
 }
