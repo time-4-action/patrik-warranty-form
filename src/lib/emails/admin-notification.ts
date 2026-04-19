@@ -14,12 +14,11 @@ export function buildAdminNotification(
   const submittedDateShort = new Date(submittedAt).toISOString().slice(0, 10);
   const fullName = [payload.name, payload.surname].filter(Boolean).join(" ");
 
-  const subject = `Warranty Request [${submittedDateShort}] [${payload.productName || "unnamed product"}]`;
+  const subject = `Warranty Request [${submittedDateShort}] [${payload.productName || "unnamed product"}] #${payload.submissionId}`;
 
   const rows: [string, string][] = [
     ["Submission ID", payload.submissionId],
     ["Submitted", submittedDate],
-    ["Receipt page", receiptUrl],
     ["Name", fullName],
     ["Company", payload.company],
     ["Email", payload.email],
@@ -40,18 +39,22 @@ export function buildAdminNotification(
     ["Data policy accepted", payload.dataPolicyAccepted ? "yes" : "no"],
   ];
 
-  const valueCellStyle =
-    "padding:8px 12px;font-size:13px;color:#18181b;border-top:1px solid #e5e7eb;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;hyphens:auto;";
+  const lbl =
+    "padding:9px 12px;font-size:13px;color:#6b7280;vertical-align:top;white-space:nowrap;width:150px;";
+  const val =
+    "padding:9px 12px;font-size:13px;color:#18181b;word-break:break-word;overflow-wrap:break-word;hyphens:auto;white-space:pre-wrap;";
+  const border = "border-top:1px solid #e5e7eb;";
 
   const rowsHtml = rows
-    .map(([label, value]) => {
-      const isUrl = value.startsWith("http://") || value.startsWith("https://");
-      const cell = isUrl
-        ? `<a href="${esc(value)}" style="color:#2563eb;word-break:break-all;">${esc(value)}</a>`
-        : esc(value) || "—";
+    .map(([label, value], i) => {
+      const topBorder = i === 0 ? "" : border;
+      const cell =
+        label === "Email"
+          ? `<a href="mailto:${esc(value)}" style="color:#0891b2;text-decoration:none;">${esc(value)}</a>`
+          : esc(value) || "—";
       return `<tr>
-        <td style="padding:8px 12px;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;vertical-align:top;width:160px;white-space:nowrap;">${esc(label)}</td>
-        <td style="${valueCellStyle}">${cell}</td>
+        <td style="${lbl}${topBorder}">${esc(label)}</td>
+        <td style="${val}${topBorder}">${cell}</td>
       </tr>`;
     })
     .join("");
@@ -65,10 +68,10 @@ export function buildAdminNotification(
 
   const filesHtml = fileLabels
     .map(
-      ([key, label]) => `<tr>
-        <td style="padding:8px 12px;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;vertical-align:top;width:160px;white-space:nowrap;">${esc(label)}</td>
-        <td style="${valueCellStyle}">
-          <a href="${esc(payload.fileUrls[key])}" style="color:#2563eb;word-break:break-all;">${esc(payload.fileUrls[key])}</a>
+      ([key, label], i) => `<tr>
+        <td style="${lbl}${i === 0 ? "" : border}">${esc(label)}</td>
+        <td style="${val}${i === 0 ? "" : border}">
+          <a href="${esc(payload.fileUrls[key])}" style="color:#0891b2;text-decoration:none;">View &rarr;</a>
         </td>
       </tr>`,
     )
@@ -79,29 +82,51 @@ export function buildAdminNotification(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <style>
+    @media only screen and (max-width:480px){
+      .wrap{padding:8px 0!important;}
+      .card{border-radius:0!important;}
+      .body{padding:20px 16px 8px 16px!important;}
+      .section{padding:0 16px 16px 16px!important;}
+      .foot{padding:10px 16px!important;}
+      .dl td{display:block;width:100%!important;box-sizing:border-box;}
+      .dl .lbl{border-top:1px solid #e5e7eb;white-space:normal!important;width:auto!important;}
+      .dl .val{border-top:none!important;padding-top:2px!important;}
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
-    <tr><td>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
-        <tr><td style="padding:24px 32px 8px 32px;">
-          <h1 style="margin:0 0 8px 0;font-size:18px;line-height:1.3;">New warranty claim</h1>
-          <p style="margin:0 0 16px 0;font-size:13px;color:#6b7280;">
-            From ${esc(fullName) || esc(payload.email)} — reply to this email to respond directly to the customer.
+  <table role="presentation" class="wrap" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" class="card" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border-radius:8px;overflow:hidden;">
+
+        <tr><td class="body" style="padding:24px 32px 12px 32px;">
+          <h1 style="margin:0 0 6px 0;font-size:18px;line-height:1.3;">New warranty claim</h1>
+          <p style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">
+            From <strong>${esc(fullName) || esc(payload.email)}</strong>
+            &mdash; <a href="mailto:${esc(payload.email)}" style="color:#0891b2;text-decoration:none;">reply to respond</a>
+            &mdash; <a href="${esc(receiptUrl)}" style="color:#0891b2;text-decoration:none;">view receipt</a>
           </p>
         </td></tr>
-        <tr><td style="padding:0 32px;">
-          <h2 style="margin:8px 0;font-size:14px;color:#18181b;">Submission</h2>
-          <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;border-collapse:separate;">
+
+        <tr><td class="section" style="padding:0 32px 16px 32px;">
+          <h2 style="margin:0 0 8px 0;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:0.06em;color:#9ca3af;">Submission details</h2>
+          <table role="presentation" class="dl" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;border-collapse:separate;">
             ${rowsHtml}
           </table>
         </td></tr>
-        <tr><td style="padding:16px 32px 32px 32px;">
-          <h2 style="margin:8px 0;font-size:14px;color:#18181b;">Uploaded files</h2>
-          <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;border-collapse:separate;">
+
+        <tr><td class="section" style="padding:0 32px 24px 32px;">
+          <h2 style="margin:0 0 8px 0;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:0.06em;color:#9ca3af;">Uploaded files</h2>
+          <table role="presentation" class="dl" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;border-collapse:separate;">
             ${filesHtml}
           </table>
         </td></tr>
+
+        <tr><td class="foot" style="padding:10px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:right;">
+          #${esc(payload.submissionId)}
+        </td></tr>
+
       </table>
     </td></tr>
   </table>
@@ -113,8 +138,12 @@ export function buildAdminNotification(
     "",
     ...rows.map(([label, value]) => `${label}: ${value || "—"}`),
     "",
+    "Receipt: " + receiptUrl,
+    "",
     "Uploaded files:",
     ...fileLabels.map(([key, label]) => `  ${label}: ${payload.fileUrls[key]}`),
+    "",
+    `#${payload.submissionId}`,
   ];
 
   return { subject, html, text: textLines.join("\n") };
