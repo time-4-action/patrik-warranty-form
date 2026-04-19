@@ -158,13 +158,6 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
                 <span className="font-semibold text-ink">
                   Patrik International
                 </span>
-                {" · "}
-                <a
-                  href="mailto:support@patrikinternational.com"
-                  className="underline-offset-2 hover:text-ink hover:underline"
-                >
-                  support@patrikinternational.com
-                </a>
               </p>
               <p className="mt-2 max-w-[560px]">
                 This document confirms receipt of a warranty request. It is not
