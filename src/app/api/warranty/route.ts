@@ -1,4 +1,5 @@
 import { appendWarrantyRow } from "@/lib/google-sheets";
+import { verifySessionToken } from "@/lib/turnstile";
 import { insertWarrantyDoc } from "@/lib/warranty-mongo";
 import type { WarrantyPayload } from "@/types/warranty";
 
@@ -7,6 +8,11 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   let payload: WarrantyPayload | undefined;
   try {
+    const session = verifySessionToken(request.headers.get("x-session-token"));
+    if (!session.ok) {
+      return Response.json({ error: "Bot check required" }, { status: 401 });
+    }
+
     payload = (await request.json()) as WarrantyPayload;
 
     if (

@@ -67,3 +67,15 @@ aws s3api put-bucket-cors --bucket patrik-assets --cors-configuration file://cor
 ```
 
 `cors.json` is committed to the repo root.
+
+## Bot protection (Cloudflare Turnstile)
+
+The form is gated by [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/). The browser solves a Turnstile challenge, exchanges the resulting token at `POST /api/turnstile-session` for a short-lived HMAC-signed session token (~30 min), then passes that session token in the `x-session-token` header on every call to `/api/upload-url` and `/api/warranty`. Both endpoints reject requests with a missing, expired, or tampered session token.
+
+### Environment variables
+
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (public, sent to the browser) |
+| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key (server-only, used to call siteverify) |
+| `TURNSTILE_SESSION_SECRET` | Random 32+ byte secret used to HMAC-sign session tokens. Generate with `openssl rand -base64 32` |
