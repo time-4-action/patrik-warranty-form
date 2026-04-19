@@ -64,6 +64,10 @@ Transport setup lives in `src/lib/mail.ts` (lazy — first `sendMail`/`verifyTra
 
 Env vars: `SMTP_HOST`, `SMTP_PORT` (465 = SSL, 587 = STARTTLS), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` (e.g. `"Patrik Warranty <noreply@patrik-windsurf.com>"`). All required at boot.
 
+## Git workflow
+
+`main` is protected — **no direct pushes**. All changes must go through a PR and require **at least 1 approval** before merging. Always branch off `main`, open a PR, and get it reviewed.
+
 ## Production infrastructure
 
 - **Boot-time env validation** — `src/instrumentation.ts` runs `assertServerEnv()` from `src/lib/env.ts` and `assertNotificationsConfig()` from `src/lib/notifications-config.ts` when the Node runtime starts. A missing required env var or an empty `adminRecipients` array throws and the server fails to start, instead of crashing on the first user request.
