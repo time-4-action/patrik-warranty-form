@@ -1026,6 +1026,10 @@ function SuccessModal({
                     Thank you — your warranty request has been received. Our team will
                     reach out if anything else is needed.
                 </p>
+                <p className="mt-2 text-[13px] text-ink-2">
+                    A confirmation email with a copy of your request has been sent to
+                    your email address.
+                </p>
                 {submissionId && (
                     <p className="mt-4 text-[11px] text-mute">
                         Reference:{" "}
