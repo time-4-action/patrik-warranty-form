@@ -27,7 +27,7 @@ powershell -NoProfile -Command ^
   "$mapbox = $env['NEXT_PUBLIC_MAPBOX_API_KEY'];" ^
   "$ga = $env['NEXT_PUBLIC_GA_MEASUREMENT_ID'];" ^
   "Write-Host \"[build] Building %IMAGE%:%TAG%...\";" ^
-  "docker build" ^
+  "docker build --no-cache" ^
   "  --build-arg NEXT_PUBLIC_MAPBOX_API_KEY=$mapbox" ^
   "  --build-arg NEXT_PUBLIC_GA_MEASUREMENT_ID=$ga" ^
   "  -t %IMAGE%:%TAG% .;" ^
