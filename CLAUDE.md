@@ -17,6 +17,9 @@ Warranty registration form for Patrik windsurfing products. Built with Next.js 1
 - `src/lib/notifications-config.ts` — loads `config/notifications.json` and asserts `adminRecipients` is non-empty at boot.
 - `src/lib/emails/user-confirmation.ts` / `src/lib/emails/admin-notification.ts` — build `{ subject, html, text }` for the two transactional emails sent on submission. Inline-styled HTML only, no external assets.
 - `config/notifications.json` — admin recipients list (edit + redeploy to change). Deliberately minimal — only the one knob that needs to vary without code change.
+- `src/components/GoogleAnalytics.tsx` — server component that injects the GA4 `<Script>` tags and renders `GARouteTracker` inside Suspense. Renders nothing if `NEXT_PUBLIC_GA_MEASUREMENT_ID` is unset.
+- `src/components/GARouteTracker.tsx` — client component that fires `gtag('config', …)` on every SPA navigation via `usePathname` + `useSearchParams`.
+- `src/lib/gtag.ts` — `gtagEvent(action, params?)` helper that calls `window.gtag` safely. Also declares the `window.gtag` / `window.dataLayer` types globally.
 
 ## File upload architecture
 
@@ -73,4 +76,5 @@ Env vars: `SMTP_HOST`, `SMTP_PORT` (465 = SSL, 587 = STARTTLS), `SMTP_USER`, `SM
 - **Boot-time env validation** — `src/instrumentation.ts` runs `assertServerEnv()` from `src/lib/env.ts` and `assertNotificationsConfig()` from `src/lib/notifications-config.ts` when the Node runtime starts. A missing required env var or an empty `adminRecipients` array throws and the server fails to start, instead of crashing on the first user request.
 - **`GET /api/health`** — pings Mongo, verifies the SMTP transport, asserts presence of Sheets env vars. Returns `200 { status: "ok", checks }` or `503 { status: "degraded", checks }`. Use it for uptime monitoring.
 - **Sentry** — `sentry.{client,server,edge}.config.ts` plus `instrumentation.ts → onRequestError`. All `init()` calls are gated on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` — leave them unset locally and Sentry stays inactive. `next.config.ts` is wrapped in `withSentryConfig` for source-map upload (needs `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` at build time only).
+- **Google Analytics 4** — `NEXT_PUBLIC_GA_MEASUREMENT_ID` is a build-time var (baked into the JS bundle). `scripts/build.bat` reads it from `.env` and passes it as a Docker `--build-arg`. Inactive if unset.
 - **Roadmap** — `docs/PRODUCTION.md` tracks deferred production items (CI, indexes, CSP, Mongo backup, etc.) with a one-line problem/fix/reason for each.
