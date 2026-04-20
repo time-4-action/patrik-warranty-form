@@ -31,6 +31,7 @@ A production-grade warranty registration form built for Patrik International. Th
 - **Boot-time env validation** — missing required vars crash the server at start, not on the first request
 - **Health endpoint** at `GET /api/health` — pings MongoDB, verifies SMTP, asserts Sheets config; returns `200 / 503`
 - **Sentry** error tracking (client + server + edge); inactive until DSN env vars are set
+- **Google Analytics 4** — page view tracking across all routes + custom events for form interactions (start, validation errors, file uploads, successful submissions, rate limits)
 
 ## Architecture
 
@@ -85,7 +86,7 @@ npm install
 Copy the example env file and fill in your credentials:
 
 ```bash
-cp .env.local.example .env.local
+cp .env.local.example .env
 ```
 
 See [Environment Variables](#environment-variables) below for the full reference.
@@ -115,7 +116,7 @@ Open [http://localhost:3000/warranty](http://localhost:3000/warranty).
 
 ## Environment Variables
 
-Copy `.env.local.example` to `.env.local`. All variables marked **required** must be set or the server will refuse to start.
+Copy `.env.local.example` to `.env`. All variables marked **required** must be set or the server will refuse to start.
 
 ### Mapbox
 
@@ -165,6 +166,16 @@ Create a GCP service account, enable the Sheets API, share the target sheet with
 | `SMTP_FROM` | ✓ | Sender display name + address, e.g. `"Patrik Warranty <noreply@patrik-windsurf.com>"` |
 
 Admin recipients (staff who receive the notification email) are configured in `config/notifications.json` — not via env vars. Edit that file and redeploy to change the list.
+
+### Google Analytics *(optional)*
+
+Leave unset to disable analytics.
+
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 Measurement ID, e.g. `G-XXXXXXXXXX` |
+
+> **Docker / build note:** `NEXT_PUBLIC_*` vars are baked into the JS bundle at build time. `build.bat` reads `.env` and passes this as a `--build-arg` automatically.
 
 ### Sentry *(optional)*
 
@@ -217,9 +228,13 @@ patrik-warranty-form/
 │   │   │   ├── _components/       WarrantyForm, UploadCard, RateLimitModal, …
 │   │   │   └── [submissionId]/    Receipt page
 │   │   └── privacy/               EU GPSR / data-deletion policy page
+│   ├── components/
+│   │   ├── GoogleAnalytics.tsx    GA4 script loader (server component)
+│   │   └── GARouteTracker.tsx     SPA route-change tracker (client component)
 │   ├── lib/
 │   │   ├── emails/                Inline-styled HTML email templates
 │   │   ├── env.ts                 Boot-time env validation
+│   │   ├── gtag.ts                gtagEvent() helper + window.gtag types
 │   │   ├── mail.ts                Nodemailer transport (lazy init)
 │   │   ├── mongo.ts               MongoDB client
 │   │   ├── notifications-config.ts  Admin recipients loader
@@ -229,6 +244,9 @@ patrik-warranty-form/
 ├── config/
 │   └── notifications.json         Admin recipient list (edit + redeploy to change)
 ├── cors.json                      S3 CORS rule — apply once with aws s3api
+├── scripts/
+│   ├── build.bat                  Docker build helper — reads .env, passes NEXT_PUBLIC_ build args
+│   └── push.bat                   Docker push helper
 └── .env.local.example             Environment variable template
 ```
 
