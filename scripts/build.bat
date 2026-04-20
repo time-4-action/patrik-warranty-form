@@ -25,9 +25,11 @@ powershell -NoProfile -Command ^
   "  if ($parts.Count -eq 2) { $env[$parts[0].Trim()] = $parts[1].Trim() }" ^
   "};" ^
   "$mapbox = $env['NEXT_PUBLIC_MAPBOX_API_KEY'];" ^
+  "$ga = $env['NEXT_PUBLIC_GA_MEASUREMENT_ID'];" ^
   "Write-Host \"[build] Building %IMAGE%:%TAG%...\";" ^
   "docker build" ^
   "  --build-arg NEXT_PUBLIC_MAPBOX_API_KEY=$mapbox" ^
+  "  --build-arg NEXT_PUBLIC_GA_MEASUREMENT_ID=$ga" ^
   "  -t %IMAGE%:%TAG% .;" ^
   "if ($LASTEXITCODE -ne 0) { Write-Error 'Build failed'; exit 1 };" ^
   "Write-Host \"[build] Done: %IMAGE%:%TAG%\""
