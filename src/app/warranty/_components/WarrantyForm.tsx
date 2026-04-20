@@ -9,6 +9,7 @@ import { ProductNameAutocomplete } from "./ProductNameAutocomplete";
 import { RateLimitModal } from "./RateLimitModal";
 import { SubmittingOverlay, type SubmitStage } from "./SubmittingOverlay";
 import type { WarrantyPayload } from "@/types/warranty";
+import { gtagEvent } from "@/lib/gtag";
 
 const COUNTRIES = [
     "Afghanistan",
@@ -421,8 +422,13 @@ export function WarrantyForm() {
     });
 
     const formRef = useRef<HTMLFormElement>(null);
+    const formStartedRef = useRef(false);
 
     const snapshotText = () => {
+        if (!formStartedRef.current) {
+            formStartedRef.current = true;
+            gtagEvent("warranty_form_start");
+        }
         const f = formRef.current;
         if (!f) return;
         const fd = new FormData(f);
@@ -520,9 +526,11 @@ export function WarrantyForm() {
         e.preventDefault();
         setSubmitError(null);
         setSubmitSuccess(false);
+        gtagEvent("warranty_form_submit_attempt");
         if (!formValid) {
             setAttemptedSubmit(true);
             const missing = missingFields();
+            gtagEvent("warranty_form_validation_error", { missing_field_count: missing.length });
             const first = missing[0];
             if (first) {
                 const el = document.getElementById(first.id);
@@ -563,8 +571,10 @@ export function WarrantyForm() {
             for (const [slot, file] of fileEntries) {
                 if (file) {
                     setStage(slot, "active");
+                    gtagEvent("warranty_file_upload_start", { slot, file_type: file.type });
                     uploads[slot] = await uploadFile(submissionId, slot, file);
                     setStage(slot, "done");
+                    gtagEvent("warranty_file_upload_complete", { slot, file_size_kb: Math.round(file.size / 1024) });
                 }
             }
             setStage("record", "active");
@@ -608,6 +618,7 @@ export function WarrantyForm() {
                     limit?: number;
                     retryAfterSeconds?: number;
                 };
+                gtagEvent("warranty_rate_limited", { endpoint: "warranty" });
                 setRateLimited({
                     limit: body.limit ?? 5,
                     retryAfterSeconds: Math.max(1, body.retryAfterSeconds ?? 3600),
@@ -626,6 +637,11 @@ export function WarrantyForm() {
                 submissionId?: string;
             };
             const confirmedSubmissionId = body.submissionId ?? submissionId;
+            gtagEvent("warranty_submitted", {
+                submission_id: confirmedSubmissionId,
+                product_category: String(payload.productCategory),
+                country_of_purchase: String(payload.countryOfPurchase),
+            });
             setStage("record", "done");
             await new Promise((r) => setTimeout(r, 850));
 
@@ -655,8 +671,10 @@ export function WarrantyForm() {
             setSubmitSuccess(true);
         } catch (err) {
             if (err instanceof RateLimitError) {
+                gtagEvent("warranty_rate_limited", { endpoint: "upload" });
                 setRateLimited(err.info);
             } else {
+                gtagEvent("warranty_submit_error", { message: err instanceof Error ? err.message : "unknown" });
                 setSubmitError(err instanceof Error ? err.message : "Submission failed");
             }
         } finally {
