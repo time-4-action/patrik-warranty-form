@@ -15,19 +15,21 @@ if "%~1"=="--latest" (
     set TAG=%DATE_TAG%
 )
 
-echo [build] Reading .env.local for NEXT_PUBLIC_ build args...
+echo [build] Reading .env for NEXT_PUBLIC_ build args...
 
 :: Build with the primary tag
 powershell -NoProfile -Command ^
   "$env = @{};" ^
-  "Get-Content '.env.local' | Where-Object { $_ -match '^\s*[A-Za-z]' } | ForEach-Object {" ^
+  "Get-Content '.env' | Where-Object { $_ -match '^\s*[A-Za-z]' } | ForEach-Object {" ^
   "  $parts = $_ -split '=', 2;" ^
   "  if ($parts.Count -eq 2) { $env[$parts[0].Trim()] = $parts[1].Trim() }" ^
   "};" ^
   "$mapbox = $env['NEXT_PUBLIC_MAPBOX_API_KEY'];" ^
+  "$ga = $env['NEXT_PUBLIC_GA_MEASUREMENT_ID'];" ^
   "Write-Host \"[build] Building %IMAGE%:%TAG%...\";" ^
-  "docker build" ^
+  "docker build --no-cache" ^
   "  --build-arg NEXT_PUBLIC_MAPBOX_API_KEY=$mapbox" ^
+  "  --build-arg NEXT_PUBLIC_GA_MEASUREMENT_ID=$ga" ^
   "  -t %IMAGE%:%TAG% .;" ^
   "if ($LASTEXITCODE -ne 0) { Write-Error 'Build failed'; exit 1 };" ^
   "Write-Host \"[build] Done: %IMAGE%:%TAG%\""
