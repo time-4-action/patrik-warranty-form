@@ -24,6 +24,7 @@ export type WarrantyPayload = {
   productCategory: string;
   serialNumber: string;
   dateOfFailure: string;
+  daysOfUse: string;
   problemDescription: string;
   fileUrls: WarrantyFileUrls;
   dataPolicyAccepted: boolean;

@@ -35,6 +35,7 @@ export function buildAdminNotification(
     ["Product category", payload.productCategory],
     ["Serial number", payload.serialNumber],
     ["Date of failure", payload.dateOfFailure],
+    ["Approx. days of use", payload.daysOfUse],
     ["Problem description", payload.problemDescription],
     ["Data policy accepted", payload.dataPolicyAccepted ? "yes" : "no"],
   ];

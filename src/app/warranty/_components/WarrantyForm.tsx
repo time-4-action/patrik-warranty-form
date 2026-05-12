@@ -300,6 +300,8 @@ function Field({
     hint,
     status,
     autoComplete = "off",
+    inputMode,
+    pattern,
 }: {
     id: string;
     label: string;
@@ -311,6 +313,8 @@ function Field({
     hint?: string;
     status?: "ok" | "error";
     autoComplete?: string;
+    inputMode?: "text" | "numeric" | "decimal" | "tel" | "search" | "email" | "url";
+    pattern?: string;
 }) {
     const controlled = value !== undefined;
     return (
@@ -322,6 +326,8 @@ function Field({
                     type={type}
                     placeholder=" "
                     autoComplete={autoComplete}
+                    inputMode={inputMode}
+                    pattern={pattern}
                     value={controlled ? value : undefined}
                     onChange={controlled ? (e) => onChange?.(e.target.value) : undefined}
                 />
@@ -394,6 +400,7 @@ export function WarrantyForm() {
     const [problem, setProblem] = useState("");
     const [purchaseDate, setPurchaseDate] = useState<Date | null>(null);
     const [failureDate, setFailureDate] = useState<Date | null>(null);
+    const [daysOfUse, setDaysOfUse] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -473,6 +480,24 @@ export function WarrantyForm() {
     const problemCount = problem.trim().length;
     const problemOk = problemCount >= PROBLEM_MIN;
 
+    const daysOfUseTrimmed = daysOfUse.trim();
+    const daysOfUseValid = /^\d+$/.test(daysOfUseTrimmed);
+    const daysOfUseOk = daysOfUseValid;
+    const daysOfUseHint =
+        daysOfUseTrimmed.length === 0
+            ? "Approximate is fine — e.g. 30"
+            : daysOfUseValid
+                ? Number(daysOfUseTrimmed) === 1
+                    ? "1 day of use recorded"
+                    : `${Number(daysOfUseTrimmed)} days of use recorded`
+                : "Enter a whole number of days";
+    const daysOfUseStatus: "ok" | "error" | undefined =
+        daysOfUseTrimmed.length === 0
+            ? undefined
+            : daysOfUseValid
+                ? "ok"
+                : "error";
+
     const today = new Date();
 
     const allFilesPresent = Boolean(
@@ -494,6 +519,7 @@ export function WarrantyForm() {
         !!productCategory &&
         !!textFields.serialNumber &&
         !!failureDate &&
+        daysOfUseOk &&
         problemOk &&
         allFilesPresent &&
         dataPolicyAccepted;
@@ -513,6 +539,7 @@ export function WarrantyForm() {
         if (!productCategory) m.push({ id: "productCategory", label: "Product category" });
         if (!textFields.serialNumber) m.push({ id: "serialNumber", label: "Serial number" });
         if (!failureDate) m.push({ id: "dateOfFailure", label: "Date of product failure" });
+        if (!daysOfUseOk) m.push({ id: "daysOfUse", label: "Approximate days of use" });
         if (!problemOk) m.push({ id: "problem", label: "Problem description" });
         if (!files.invoice) m.push({ id: "uploadInvoice", label: "Invoice upload" });
         if (!files.serial) m.push({ id: "uploadSerial", label: "Serial number photo" });
@@ -598,6 +625,7 @@ export function WarrantyForm() {
                 productCategory: String(formData.get("productCategory") ?? ""),
                 serialNumber: String(formData.get("serialNumber") ?? ""),
                 dateOfFailure: String(formData.get("dateOfFailure") ?? ""),
+                daysOfUse: daysOfUseTrimmed,
                 problemDescription: String(formData.get("problem") ?? ""),
                 fileUrls: {
                     invoice: uploads.invoice ?? "",
@@ -652,6 +680,7 @@ export function WarrantyForm() {
             setProductCategory("");
             setPurchaseDate(null);
             setFailureDate(null);
+            setDaysOfUse("");
             setTypeOfPartner("");
             setCountryOfPurchase("");
             setSku("");
@@ -813,6 +842,19 @@ export function WarrantyForm() {
                     onChange={setFailureDate}
                     min={purchaseDate ?? undefined}
                     max={today}
+                />
+                <Field
+                    id="daysOfUse"
+                    label="Approximate days of use"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    required
+                    colSpan="md:col-span-2"
+                    value={daysOfUse}
+                    onChange={(v) => setDaysOfUse(v.replace(/[^0-9]/g, ""))}
+                    hint={daysOfUseHint}
+                    status={daysOfUseStatus}
                 />
 
                 <div
