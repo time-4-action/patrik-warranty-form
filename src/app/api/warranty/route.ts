@@ -3,8 +3,8 @@ import { buildAdminNotification } from "@/lib/emails/admin-notification";
 import { buildUserConfirmation } from "@/lib/emails/user-confirmation";
 import { appendWarrantyRow } from "@/lib/google-sheets";
 import { sendMail } from "@/lib/mail";
-import { getNotificationsConfig } from "@/lib/notifications-config";
 import { consumeSubmissionAttempt, getClientIp } from "@/lib/rate-limit";
+import { getWarrantySettings } from "@/lib/warranty-settings";
 import { insertWarrantyDoc } from "@/lib/warranty-mongo";
 import type { WarrantyPayload } from "@/types/warranty";
 
@@ -92,9 +92,16 @@ async function sendNotificationEmails(
   payload: WarrantyPayload,
   submittedAt: string,
 ): Promise<void> {
-  const userEmail = buildUserConfirmation(payload, submittedAt);
-  const adminEmail = buildAdminNotification(payload, submittedAt);
-  const { adminRecipients } = getNotificationsConfig();
+  const settings = await getWarrantySettings();
+  const userEmail = buildUserConfirmation(payload, submittedAt, settings.customer);
+  const adminEmail = buildAdminNotification(payload, submittedAt, settings.admin);
+  const adminRecipients = settings.adminRecipients;
+
+  if (adminRecipients.length === 0) {
+    console.warn("warranty admin notification skipped: no recipients configured", {
+      submissionId: payload.submissionId,
+    });
+  }
 
   const [userResult, adminResult] = await Promise.allSettled([
     sendMail({
@@ -103,14 +110,16 @@ async function sendNotificationEmails(
       html: userEmail.html,
       text: userEmail.text,
     }),
-    sendMail({
-      to: process.env.SMTP_FROM!,
-      bcc: adminRecipients,
-      subject: adminEmail.subject,
-      html: adminEmail.html,
-      text: adminEmail.text,
-      replyTo: payload.email,
-    }),
+    adminRecipients.length > 0
+      ? sendMail({
+          to: process.env.SMTP_FROM!,
+          bcc: adminRecipients,
+          subject: adminEmail.subject,
+          html: adminEmail.html,
+          text: adminEmail.text,
+          replyTo: payload.email,
+        })
+      : Promise.resolve(),
   ]);
 
   if (userResult.status === "rejected") {

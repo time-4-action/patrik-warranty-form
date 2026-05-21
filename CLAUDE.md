@@ -53,6 +53,47 @@ Both endpoints return `429 { error: "rate-limited", limit, retryAfterSeconds }` 
 
 A TTL index on `updatedAt` auto-expires idle IPs after `2 × WINDOW_MS`, so the `rate_limits` collection stays small without a cron job.
 
+## Admin integration
+
+A separate **t4a-admin** dashboard manages submissions and email settings on this
+service. It talks to the routes under `src/app/api/admin/*`, authenticated with
+a shared bearer token.
+
+- `src/lib/admin-auth.ts` — `checkInternalAdmin(request)` asserts
+  `Authorization: Bearer $INTERNAL_ADMIN_TOKEN`. Returns null on success, or a
+  401/503 `Response` the caller returns as-is.
+- `src/types/warranty-settings.ts` — settings shape, status enum, field-key
+  catalogues (`CUSTOMER_FIELD_KEYS`, `ADMIN_FIELD_KEYS`) + labels +
+  `DEFAULT_SETTINGS`. Both this repo and the admin dashboard import the keys.
+- `src/lib/warranty-settings.ts` — Mongo-backed `getWarrantySettings()` /
+  `saveWarrantySettings()`, stored in `warranty_settings` collection under
+  `_id: "default"`. Missing fields fall back to `DEFAULT_SETTINGS`; empty
+  `adminRecipients` falls back to `config/notifications.json` for first-run.
+- Status field — every doc gets `status: "new"` on insert (plus
+  `statusUpdatedAt`). Admin can transition through `new → in_review → approved
+  / rejected → shipped` via `PATCH /api/admin/submissions/[id]`.
+
+Routes:
+
+| Route | Methods | Purpose |
+|---|---|---|
+| `/api/admin/submissions` | GET | Paginated list with `status`, `q`, `from`, `to`, `limit`, `skip` query params. Returns `{ total, items }`. |
+| `/api/admin/submissions/[id]` | GET, PATCH | Single doc; PATCH body `{ status }` updates the status. |
+| `/api/admin/settings` | GET, PUT | Current `WarrantySettings`; PUT body replaces it (normalised + merged with defaults before save). |
+
+Email builders (`buildUserConfirmation`, `buildAdminNotification`) now take a
+`CustomerEmailSettings` / `AdminEmailSettings` argument and honour:
+- `subject` template with `{{productName}}`, `{{serialNumber}}`,
+  `{{submissionId}}`, `{{shortId}}`, `{{date}}` placeholders.
+- `intro` / `outro` free-form text (blank-line paragraphs, single `\n` → `<br>`,
+  HTML-escaped via `paragraphs()` in `_html.ts`).
+- `fields` array picks which rows render. For the admin email, `"uploads"` is a
+  pseudo-field that toggles the entire uploaded-files section.
+
+The boot-time `assertNotificationsConfig()` was removed from
+`instrumentation.ts` — recipients are no longer required at startup since they
+live in Mongo and can be edited live.
+
 ## Email notifications
 
 On successful submission, `/api/warranty` sends two transactional emails in parallel (`Promise.allSettled`) via SMTP (nodemailer):

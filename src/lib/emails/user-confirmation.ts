@@ -1,11 +1,35 @@
 import type { WarrantyPayload } from "@/types/warranty";
-import { esc } from "./_html";
+import {
+  CUSTOMER_FIELD_LABELS,
+  type CustomerEmailSettings,
+  type CustomerFieldKey,
+} from "@/types/warranty-settings";
+import { esc, paragraphs, renderTemplate } from "./_html";
 
 export type BuiltEmail = { subject: string; html: string; text: string };
+
+function customerFieldValue(
+  key: CustomerFieldKey,
+  payload: WarrantyPayload,
+  shortId: string,
+  submittedDate: string,
+): string {
+  switch (key) {
+    case "claimNumber":
+      return `#${shortId}`;
+    case "productName":
+      return payload.productName ?? "";
+    case "serialNumber":
+      return payload.serialNumber ?? "";
+    case "submittedAt":
+      return submittedDate;
+  }
+}
 
 export function buildUserConfirmation(
   payload: WarrantyPayload,
   submittedAt: string,
+  settings: CustomerEmailSettings,
 ): BuiltEmail {
   const shortId = payload.submissionId.slice(0, 8);
   const receiptUrl = `${process.env.BASE_URL}/warranty/${payload.submissionId}`;
@@ -13,10 +37,42 @@ export function buildUserConfirmation(
     dateStyle: "long",
     timeStyle: "short",
   });
-  const contactEmail = "info@patrik-windsurf.com";
   const fullName = [payload.name, payload.surname].filter(Boolean).join(" ");
 
-  const subject = `Your PATRIK warranty request`;
+  const subject = renderTemplate(settings.subject, {
+    productName: payload.productName ?? "",
+    submissionId: payload.submissionId,
+    shortId,
+    date: submittedDate,
+  });
+
+  const introHtml = paragraphs(
+    settings.intro,
+    "margin:0 0 20px 0;font-size:14px;line-height:1.6;",
+  );
+  const outroHtml = paragraphs(
+    settings.outro,
+    "margin:0 0 8px 0;font-size:13px;line-height:1.6;color:#6b7280;",
+  );
+
+  const fieldRows = settings.fields
+    .map((key, i) => {
+      const label = CUSTOMER_FIELD_LABELS[key];
+      const value = customerFieldValue(key, payload, shortId, submittedDate);
+      const mono = key === "claimNumber" || key === "serialNumber";
+      const top = i === 0 ? "" : "border-top:1px solid #e5e7eb;";
+      return `<tr>
+              <td class="lbl" style="padding:10px 14px;font-size:13px;color:#6b7280;width:130px;white-space:nowrap;${top}">${esc(label)}</td>
+              <td class="val" style="padding:10px 14px;font-size:13px;color:#18181b;${mono ? "font-family:monospace;" : ""}${top}">${esc(value) || "—"}</td>
+            </tr>`;
+    })
+    .join("");
+
+  const detailsTable = settings.fields.length
+    ? `<table role="presentation" class="dl" cellpadding="0" cellspacing="0" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;border-collapse:separate;margin-bottom:24px;">
+            ${fieldRows}
+          </table>`
+    : "";
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -42,28 +98,8 @@ export function buildUserConfirmation(
         <tr><td class="body" style="padding:32px 32px 16px 32px;">
           <h1 style="margin:0 0 16px 0;font-size:20px;line-height:1.3;color:#18181b;">Thank you for your warranty claim</h1>
           <p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;">Dear ${esc(fullName) || "Customer"},</p>
-          <p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;">
-            We have received your warranty submission. Our team will review it and get back to you as soon as possible.
-          </p>
-
-          <table role="presentation" class="dl" cellpadding="0" cellspacing="0" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;border-collapse:separate;margin-bottom:24px;">
-            <tr>
-              <td class="lbl" style="padding:10px 14px;font-size:13px;color:#6b7280;width:130px;white-space:nowrap;">Claim number</td>
-              <td class="val" style="padding:10px 14px;font-size:13px;color:#18181b;font-family:monospace;">#${esc(shortId)}</td>
-            </tr>
-            <tr>
-              <td class="lbl" style="padding:10px 14px;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;white-space:nowrap;">Product</td>
-              <td class="val" style="padding:10px 14px;font-size:13px;color:#18181b;border-top:1px solid #e5e7eb;">${esc(payload.productName) || "—"}</td>
-            </tr>
-            <tr>
-              <td class="lbl" style="padding:10px 14px;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;white-space:nowrap;">Serial number</td>
-              <td class="val" style="padding:10px 14px;font-size:13px;color:#18181b;border-top:1px solid #e5e7eb;font-family:monospace;">${esc(payload.serialNumber) || "—"}</td>
-            </tr>
-            <tr>
-              <td class="lbl" style="padding:10px 14px;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;white-space:nowrap;">Submitted</td>
-              <td class="val" style="padding:10px 14px;font-size:13px;color:#18181b;border-top:1px solid #e5e7eb;">${esc(submittedDate)}</td>
-            </tr>
-          </table>
+          ${introHtml}
+          ${detailsTable}
 
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
             <tr>
@@ -73,10 +109,7 @@ export function buildUserConfirmation(
             </tr>
           </table>
 
-          <p style="margin:0 0 8px 0;font-size:13px;line-height:1.6;color:#6b7280;">
-            Questions? Reply to this email or contact us at
-            <a href="mailto:${contactEmail}" style="color:#0891b2;text-decoration:none;">${contactEmail}</a>.
-          </p>
+          ${outroHtml}
           <p style="margin:20px 0 0 0;font-size:14px;line-height:1.6;">
             Best regards,<br>
             Patrik Warranty Team
@@ -91,23 +124,20 @@ export function buildUserConfirmation(
 </body>
 </html>`;
 
-  const text = [
-    `Dear ${fullName || "Customer"},`,
-    "",
-    "We have received your warranty submission. Our team will review it and get back to you as soon as possible.",
-    "",
-    `Claim number: #${shortId}`,
-    `Product:      ${payload.productName || "—"}`,
-    `Serial:       ${payload.serialNumber || "—"}`,
-    `Submitted:    ${submittedDate}`,
-    "",
-    `View your receipt: ${receiptUrl}`,
-    "",
-    `Questions? Reply to this email or write to ${contactEmail}.`,
-    "",
-    "Best regards,",
-    "Patrik Warranty Team",
-  ].join("\n");
+  const textLines: string[] = [`Dear ${fullName || "Customer"},`, ""];
+  if (settings.intro?.trim()) {
+    textLines.push(settings.intro.trim(), "");
+  }
+  for (const key of settings.fields) {
+    const label = CUSTOMER_FIELD_LABELS[key];
+    const value = customerFieldValue(key, payload, shortId, submittedDate);
+    textLines.push(`${label}: ${value || "—"}`);
+  }
+  textLines.push("", `View your receipt: ${receiptUrl}`);
+  if (settings.outro?.trim()) {
+    textLines.push("", settings.outro.trim());
+  }
+  textLines.push("", "Best regards,", "Patrik Warranty Team");
 
-  return { subject, html, text };
+  return { subject, html, text: textLines.join("\n") };
 }
