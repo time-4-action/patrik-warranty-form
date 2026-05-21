@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { InfoTooltip } from "./InfoTooltip";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -25,6 +26,7 @@ export function UploadCard({
   value,
   onChange,
   maxSizeMB,
+  info,
 }: {
   id: string;
   name?: string;
@@ -34,6 +36,7 @@ export function UploadCard({
   value: File | null;
   onChange: (f: File | null) => void;
   maxSizeMB?: number;
+  info?: string;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +100,12 @@ export function UploadCard({
         className="sr-only"
         onChange={(e) => handle(e.target.files?.[0] ?? null)}
       />
+
+      {info && (
+        <span className="upc-info">
+          <InfoTooltip label={label} text={info} />
+        </span>
+      )}
 
       {!value ? (
         <button

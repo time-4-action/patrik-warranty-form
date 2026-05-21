@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { InfoTooltip } from "./InfoTooltip";
 
 /* ---------- Shared ---------- */
 
@@ -64,6 +65,7 @@ export function CustomSelect({
   searchable = true,
   value,
   onChange,
+  info,
 }: {
   id: string;
   name?: string;
@@ -75,6 +77,7 @@ export function CustomSelect({
   searchable?: boolean;
   value?: string;
   onChange?: (v: string) => void;
+  info?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [internal, setInternal] = useState("");
@@ -138,6 +141,7 @@ export function CustomSelect({
       </label>
       <Chevron open={open} />
       <span className="field-bar" />
+      {info && <InfoTooltip label={label} text={info} />}
 
       {open && (
         <div className="cs-menu" role="listbox" aria-labelledby={id}>
@@ -265,6 +269,7 @@ export function DatePicker({
   onChange,
   min,
   max,
+  info,
 }: {
   id: string;
   name?: string;
@@ -276,6 +281,7 @@ export function DatePicker({
   onChange?: (d: Date | null) => void;
   min?: Date | null;
   max?: Date | null;
+  info?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [internal, setInternal] = useState<Date | null>(null);
@@ -387,6 +393,7 @@ export function DatePicker({
         />
       </svg>
       <span className="field-bar" />
+      {info && <InfoTooltip label={label} text={info} />}
 
       {open && (
         <div className="dp-menu" role="dialog" aria-label="Choose date">

@@ -8,6 +8,7 @@ Warranty registration form for Patrik windsurfing products. Built with Next.js 1
 
 - `src/app/warranty/_components/WarrantyForm.tsx` — the main form (client component). Handles all state, validation, file upload orchestration, and submit logic.
 - `src/app/warranty/_components/UploadCard.tsx` — drag-and-drop file picker card used for the 4 upload slots.
+- `src/app/warranty/_components/InfoTooltip.tsx` — small (i) icon + popover used by `Field` and `UploadCard` to explain a field. Shown when the user clicks the (i) button next to a field's label / upload card; closes on outside click or Esc. Wire by passing `info="…"` to a `Field` or `UploadCard` — leave it unset and no icon renders. Styles live in `globals.css` under `/* --- Info tooltip (i) --- */`.
 - `src/app/warranty/_components/RateLimitModal.tsx` — branded modal shown when `/api/warranty` or `/api/upload-url` return 429. Live-counts the retry time and explains why the limit exists.
 - `src/app/api/upload-url/route.ts` — POST endpoint that generates presigned S3 PUT URLs. Called once per file on submit. IP rate-limited via `consumeSubmissionAttempt`.
 - `src/app/api/warranty/route.ts` — POST endpoint that persists the warranty submission to Google Sheets + MongoDB. IP rate-limited via `consumeSubmissionAttempt`.

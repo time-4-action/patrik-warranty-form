@@ -115,6 +115,10 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
                 label="Date of product failure"
                 value={formatDate(doc.dateOfFailure)}
               />
+              <InfoRow
+                label="Approx. days of use"
+                value={formatDaysOfUse(doc.daysOfUse)}
+              />
             </Section>
 
             {/* Problem Description */}
@@ -300,6 +304,14 @@ function UploadLink({ label, url }: { label: string; url: string }) {
 
 function joinName(first: string, last: string): string {
   return [first, last].filter((x) => x?.trim()).join(" ");
+}
+
+function formatDaysOfUse(value: string): string {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return "";
+  if (!/^\d+$/.test(trimmed)) return trimmed;
+  const n = Number(trimmed);
+  return `${n} day${n === 1 ? "" : "s"}`;
 }
 
 function formatDate(value: string): string {
