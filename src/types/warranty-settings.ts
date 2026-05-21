@@ -48,7 +48,7 @@ export const WARRANTY_TYPE_LABELS: Record<WarrantyType, string> = {
   proven: "Proven",
   proven_iq: "Proven IQ",
   goodwill: "Goodwill",
-  denied: "Denied",
+  denied: "Rejected",
 };
 
 export type WarrantySuggestion =
@@ -82,7 +82,7 @@ export const WARRANTY_SUGGESTION_LABELS: Record<WarrantySuggestion, string> = {
   pending: "Pending",
   accepted: "Accepted",
   declined: "Declined",
-  denied: "Denied",
+  denied: "Rejected",
   exchange: "Exchange",
   exchange_sent: "Exchange sent",
   rcn: "RCN",
@@ -127,7 +127,7 @@ export const FACTORY_STATUS_LABELS: Record<FactoryStatus, string> = {
   rcn_fcn_received: "RCN / FCN received",
   egi_claim: "EGI claim",
   done: "Done",
-  denied: "Denied",
+  denied: "Rejected",
 };
 
 export type CustomerStatus =
