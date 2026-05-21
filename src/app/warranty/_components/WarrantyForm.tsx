@@ -8,6 +8,7 @@ import { AddressAutocomplete } from "./AddressAutocomplete";
 import { ProductNameAutocomplete } from "./ProductNameAutocomplete";
 import { RateLimitModal } from "./RateLimitModal";
 import { SubmittingOverlay, type SubmitStage } from "./SubmittingOverlay";
+import { InfoTooltip } from "./InfoTooltip";
 import type { WarrantyPayload } from "@/types/warranty";
 import { gtagEvent } from "@/lib/gtag";
 
@@ -302,6 +303,7 @@ function Field({
     autoComplete = "off",
     inputMode,
     pattern,
+    info,
 }: {
     id: string;
     label: string;
@@ -315,6 +317,7 @@ function Field({
     autoComplete?: string;
     inputMode?: "text" | "numeric" | "decimal" | "tel" | "search" | "email" | "url";
     pattern?: string;
+    info?: string;
 }) {
     const controlled = value !== undefined;
     return (
@@ -336,6 +339,7 @@ function Field({
                     {required && <span className="req">*</span>}
                 </label>
                 <span className="field-bar" />
+                {info && <InfoTooltip label={label} text={info} />}
             </div>
             {hint && <FieldHint text={hint} status={status} />}
         </div>
@@ -762,6 +766,7 @@ export function WarrantyForm() {
                     required
                     value={typeOfPartner}
                     onChange={setTypeOfPartner}
+                    info="How you relate to Patrik: Surfshop / Partner if you sell our products, Team or Promo Rider if sponsored, Direct customer if you bought it for personal use."
                 />
                 <AddressAutocomplete
                     id="address"
@@ -779,7 +784,12 @@ export function WarrantyForm() {
 
             <SectionHeading>Purchase Details</SectionHeading>
             <div className="grid gap-x-10 gap-y-2 md:grid-cols-2">
-                <Field id="invoiceNumber" label="Invoice number" required />
+                <Field
+                    id="invoiceNumber"
+                    label="Invoice number"
+                    required
+                    info="The reference number printed on your receipt or invoice from the shop where you bought the product."
+                />
                 <DatePicker
                     id="dateOfPurchase"
                     label="Date of purchase"
@@ -796,6 +806,7 @@ export function WarrantyForm() {
                     label="Invoice issued by (shop/partner etc.)"
                     required
                     colSpan="md:col-span-2"
+                    info="The shop, dealer, or partner whose name is on the invoice — not Patrik directly, unless you bought it from us."
                 />
                 <CustomSelect
                     id="countryOfPurchase"
@@ -823,6 +834,7 @@ export function WarrantyForm() {
                         setSku(d.sku);
                         setEan(d.ean);
                     }}
+                    info="The exact model name as printed on the product or invoice (e.g. F4 73, Quantum 5.0). Start typing — we'll suggest matches."
                 />
                 <CustomSelect
                     id="productCategory"
@@ -833,7 +845,12 @@ export function WarrantyForm() {
                     value={productCategory}
                     onChange={setProductCategory}
                 />
-                <Field id="serialNumber" label="Serial number" required />
+                <Field
+                    id="serialNumber"
+                    label="Serial number"
+                    required
+                    info="Serial number is printed on your product."
+                />
                 <DatePicker
                     id="dateOfFailure"
                     label="Date of product failure"
@@ -842,6 +859,7 @@ export function WarrantyForm() {
                     onChange={setFailureDate}
                     min={purchaseDate ?? undefined}
                     max={today}
+                    info="The day you first noticed the defect or the product stopped working as it should — not when you bought it."
                 />
                 <Field
                     id="daysOfUse"
@@ -855,6 +873,7 @@ export function WarrantyForm() {
                     onChange={(v) => setDaysOfUse(v.replace(/[^0-9]/g, ""))}
                     hint={daysOfUseHint}
                     status={daysOfUseStatus}
+                    info="A rough estimate is fine — count only days you actually rode the product, not days since purchase. This helps us judge wear vs. defect."
                 />
 
                 <div
@@ -875,6 +894,10 @@ export function WarrantyForm() {
                         <span className="req">*</span>
                     </label>
                     <span className="field-bar" />
+                    <InfoTooltip
+                        label="Problem description"
+                        text="Be specific: what broke, when you noticed it, and the conditions (wind strength, water type, ride duration). The more detail, the faster we can diagnose."
+                    />
                     <FieldHint
                         text={
                             problemOk
@@ -894,6 +917,7 @@ export function WarrantyForm() {
                     required
                     value={files.invoice}
                     onChange={(f) => setFiles((p) => ({ ...p, invoice: f }))}
+                    info="A photo or scan of your receipt / invoice from the shop. PDF or image. The invoice number and date must be readable."
                 />
                 <UploadCard
                     id="uploadSerial"
@@ -901,6 +925,7 @@ export function WarrantyForm() {
                     required
                     value={files.serial}
                     onChange={(f) => setFiles((p) => ({ ...p, serial: f }))}
+                    info="Sharp, in-focus photo of the serial sticker / engraving on the product. Make sure every character is legible."
                 />
                 <UploadCard
                     id="uploadFull"
@@ -908,6 +933,7 @@ export function WarrantyForm() {
                     required
                     value={files.full}
                     onChange={(f) => setFiles((p) => ({ ...p, full: f }))}
+                    info="Step back and capture the whole product from the side where the defect is — this gives us context for where on the product the issue sits."
                 />
                 <UploadCard
                     id="uploadCloseup"
@@ -915,6 +941,7 @@ export function WarrantyForm() {
                     required
                     value={files.closeup}
                     onChange={(f) => setFiles((p) => ({ ...p, closeup: f }))}
+                    info="Zoom in on the defect itself. Good lighting, no shadow over the damaged area. A coin or ruler next to it for scale is helpful."
                 />
             </div>
 

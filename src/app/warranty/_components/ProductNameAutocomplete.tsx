@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { InfoTooltip } from "./InfoTooltip";
 
 const SEARCH_URL = "https://api.time-4-action.com/api/product/search";
 const CAT = "69e3533f083b11005a8f6ab1";
@@ -51,6 +52,7 @@ export function ProductNameAutocomplete({
     onChange,
     onCategoryChange,
     onProductSelect,
+    info,
 }: {
     id: string;
     label: string;
@@ -60,6 +62,7 @@ export function ProductNameAutocomplete({
     onChange?: (v: string) => void;
     onCategoryChange?: (category: string) => void;
     onProductSelect?: (data: { sku: string; ean: string }) => void;
+    info?: string;
 }) {
     const [inputValue, setInputValue] = useState(value ?? "");
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -166,6 +169,7 @@ export function ProductNameAutocomplete({
                 {required && <span className="req">*</span>}
             </label>
             <span className="field-bar" />
+            {info && <InfoTooltip label={label} text={info} />}
 
             {loading && <span className="ac-spinner" aria-hidden />}
 
