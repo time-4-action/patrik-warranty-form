@@ -1,17 +1,247 @@
+// ============================================================================
+// Workflow pipeline (mirrors the operations team's existing Excel sheet)
+// ============================================================================
+
 export type WarrantyStatus =
-  | "new"
+  | "open"
   | "in_review"
-  | "approved"
-  | "rejected"
-  | "shipped";
+  | "decided"
+  | "to_send_new_product"
+  | "finished";
 
 export const WARRANTY_STATUSES: WarrantyStatus[] = [
-  "new",
+  "open",
   "in_review",
-  "approved",
-  "rejected",
-  "shipped",
+  "decided",
+  "to_send_new_product",
+  "finished",
 ];
+
+export const WARRANTY_STATUS_LABELS: Record<WarrantyStatus, string> = {
+  open: "Open",
+  in_review: "In review",
+  decided: "Decided",
+  to_send_new_product: "To send new product",
+  finished: "Finished",
+};
+
+export type WarrantyType =
+  | "open"
+  | "potential"
+  | "proven"
+  | "proven_iq"
+  | "goodwill"
+  | "denied";
+
+export const WARRANTY_TYPES: WarrantyType[] = [
+  "open",
+  "potential",
+  "proven",
+  "proven_iq",
+  "goodwill",
+  "denied",
+];
+
+export const WARRANTY_TYPE_LABELS: Record<WarrantyType, string> = {
+  open: "Open",
+  potential: "Potential",
+  proven: "Proven",
+  proven_iq: "Proven IQ",
+  goodwill: "Goodwill",
+  denied: "Denied",
+};
+
+export type WarrantySuggestion =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "denied"
+  | "exchange"
+  | "exchange_sent"
+  | "rcn"
+  | "fcn_rcn_to_client_done"
+  | "fcn_rcn_to_customer_done"
+  | "repair_cost"
+  | "repair_cost_rcn";
+
+export const WARRANTY_SUGGESTIONS: WarrantySuggestion[] = [
+  "pending",
+  "accepted",
+  "declined",
+  "denied",
+  "exchange",
+  "exchange_sent",
+  "rcn",
+  "fcn_rcn_to_client_done",
+  "fcn_rcn_to_customer_done",
+  "repair_cost",
+  "repair_cost_rcn",
+];
+
+export const WARRANTY_SUGGESTION_LABELS: Record<WarrantySuggestion, string> = {
+  pending: "Pending",
+  accepted: "Accepted",
+  declined: "Declined",
+  denied: "Denied",
+  exchange: "Exchange",
+  exchange_sent: "Exchange sent",
+  rcn: "RCN",
+  fcn_rcn_to_client_done: "FCN / RCN to Client done",
+  fcn_rcn_to_customer_done: "FCN / RCN to Customer done",
+  repair_cost: "Repair cost",
+  repair_cost_rcn: "Repair cost + RCN",
+};
+
+export type FactoryStatus =
+  | "not_needed"
+  | "send_info_to_factory"
+  | "info_to_factory_sent"
+  | "pending"
+  | "requested"
+  | "rcn_fcn_in_process"
+  | "rcn_fcn_received"
+  | "egi_claim"
+  | "done"
+  | "denied";
+
+export const FACTORY_STATUSES: FactoryStatus[] = [
+  "not_needed",
+  "send_info_to_factory",
+  "info_to_factory_sent",
+  "pending",
+  "requested",
+  "rcn_fcn_in_process",
+  "rcn_fcn_received",
+  "egi_claim",
+  "done",
+  "denied",
+];
+
+export const FACTORY_STATUS_LABELS: Record<FactoryStatus, string> = {
+  not_needed: "Not needed",
+  send_info_to_factory: "Send info to factory",
+  info_to_factory_sent: "Info to factory sent",
+  pending: "Pending",
+  requested: "Requested",
+  rcn_fcn_in_process: "RCN / FCN in process",
+  rcn_fcn_received: "RCN / FCN received",
+  egi_claim: "EGI claim",
+  done: "Done",
+  denied: "Denied",
+};
+
+export type CustomerStatus =
+  | "not_needed"
+  | "email_sent_to_client"
+  | "email_sent_to_customer"
+  | "product_returned"
+  | "warranty_repaired"
+  | "warranty_returned"
+  | "warranty_sold"
+  | "warranty_destroyed"
+  | "buy_warranty"
+  | "sell_warranty"
+  | "return_warranty"
+  | "destroy_warranty"
+  | "done";
+
+export const CUSTOMER_STATUSES: CustomerStatus[] = [
+  "not_needed",
+  "email_sent_to_client",
+  "email_sent_to_customer",
+  "product_returned",
+  "warranty_repaired",
+  "warranty_returned",
+  "warranty_sold",
+  "warranty_destroyed",
+  "buy_warranty",
+  "sell_warranty",
+  "return_warranty",
+  "destroy_warranty",
+  "done",
+];
+
+export const CUSTOMER_STATUS_LABELS: Record<CustomerStatus, string> = {
+  not_needed: "Not needed",
+  email_sent_to_client: "Email sent to client",
+  email_sent_to_customer: "Email sent to customer",
+  product_returned: "Product returned",
+  warranty_repaired: "Warranty repaired",
+  warranty_returned: "Warranty returned",
+  warranty_sold: "Warranty sold",
+  warranty_destroyed: "Warranty destroyed",
+  buy_warranty: "Buy warranty",
+  sell_warranty: "Sell warranty",
+  return_warranty: "Return warranty",
+  destroy_warranty: "Destroy warranty",
+  done: "Done",
+};
+
+// Assignees are hard-coded to match the existing operations roster.
+export const ASSIGNEES = [
+  "Tine",
+  "Patrik",
+  "Henning",
+  "Karin",
+  "Alex",
+  "Nejc",
+  "Zala",
+] as const;
+export type Assignee = (typeof ASSIGNEES)[number];
+
+export type WorkflowFields = {
+  status: WarrantyStatus;
+  assignee: Assignee | null;
+  warrantyType: WarrantyType | null;
+  suggestion: WarrantySuggestion | null;
+  factoryStatus: FactoryStatus | null;
+  customerStatus: CustomerStatus | null;
+};
+
+export type ClaimNote = {
+  id: string;
+  authorName: string;
+  authorEmail: string;
+  text: string;
+  createdAt: string;
+};
+
+// Normalises a possibly-legacy / missing status value into the current enum.
+// Older docs from the v1 schema used "new" — map it to "open".
+export function normaliseStatus(value: unknown): WarrantyStatus {
+  if (typeof value !== "string") return "open";
+  if ((WARRANTY_STATUSES as string[]).includes(value)) {
+    return value as WarrantyStatus;
+  }
+  if (value === "new") return "open";
+  if (value === "approved") return "decided";
+  if (value === "shipped") return "finished";
+  if (value === "rejected") return "finished";
+  return "open";
+}
+
+function normaliseEnum<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+): T | null {
+  if (typeof value !== "string") return null;
+  return (allowed as readonly string[]).includes(value) ? (value as T) : null;
+}
+
+export function normaliseWorkflow(doc: Record<string, unknown>): WorkflowFields {
+  return {
+    status: normaliseStatus(doc.status),
+    assignee: normaliseEnum(doc.assignee, ASSIGNEES),
+    warrantyType: normaliseEnum(doc.warrantyType, WARRANTY_TYPES),
+    suggestion: normaliseEnum(doc.suggestion, WARRANTY_SUGGESTIONS),
+    factoryStatus: normaliseEnum(doc.factoryStatus, FACTORY_STATUSES),
+    customerStatus: normaliseEnum(doc.customerStatus, CUSTOMER_STATUSES),
+  };
+}
+
+// ============================================================================
+// Email field catalogues (unchanged from v1)
+// ============================================================================
 
 export type CustomerFieldKey =
   | "claimNumber"
