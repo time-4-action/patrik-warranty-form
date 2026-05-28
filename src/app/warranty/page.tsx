@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { WarrantyForm } from "./_components/WarrantyForm";
 
@@ -12,9 +13,13 @@ export default function WarrantyPage() {
     <main className="flex-1 bg-bg text-ink">
       {/* ---------- Hero ---------- */}
       <section className="relative h-[637px] max-h-[33vh] w-full overflow-hidden bg-[#1e3b44]">
-        <div
-          className="absolute inset-0 bg-cover bg-[center_20%] bg-no-repeat"
-          style={{ backgroundImage: "url('/windsurfer-jump.webp')" }}
+        <Image
+          src="/windsurfer-jump.webp"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-[center_20%]"
           aria-hidden
         />
         <div
