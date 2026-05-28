@@ -1126,3 +1126,26 @@ body {
   position: static;
 }
 
+/* --- Serial help modal --- */
+@keyframes serialPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.7);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(2.6);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.serial-pin-ring {
+  animation: serialPulse 1.9s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .serial-pin-ring {
+    animation: none;
+  }
+}
+
