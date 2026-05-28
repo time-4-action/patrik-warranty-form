@@ -14,7 +14,7 @@ export default function WarrantyPage() {
       <section className="relative h-[637px] max-h-[33vh] w-full overflow-hidden bg-[#1e3b44]">
         <div
           className="absolute inset-0 bg-cover bg-[center_20%] bg-no-repeat"
-          style={{ backgroundImage: "url('/windsurfer-jump.jpg')" }}
+          style={{ backgroundImage: "url('/windsurfer-jump.webp')" }}
           aria-hidden
         />
         <div

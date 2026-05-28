@@ -2,6 +2,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { findWarrantyBySubmissionId } from "@/lib/warranty-mongo";
+import { WARRANTY_STATUS_LABELS } from "@/types/warranty-settings";
 import { PrintButton } from "./_components/PrintButton";
 
 export const runtime = "nodejs";
@@ -72,12 +73,21 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
             </div>
 
             {/* Meta strip */}
-            <div className="meta-strip mt-7 flex flex-col gap-4 border-t border-b border-rule py-4 sm:mt-8 sm:flex-row sm:gap-14 sm:py-5">
+            <div className="meta-strip mt-7 flex flex-col gap-4 border-t border-b border-rule py-4 sm:mt-8 sm:flex-row sm:items-end sm:gap-14 sm:py-5">
               <MetaItem label="Claim No." value={doc.submissionId} mono />
               <MetaItem
                 label="Submitted"
                 value={formatDateTime(doc.submittedAt)}
               />
+              <div className="sm:ml-auto">
+                <p className="font-display text-[10px] font-bold uppercase tracking-[0.22em] text-mute">
+                  Status
+                </p>
+                <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-rule bg-[#fafafa] px-2.5 py-1 text-[12px] font-medium text-ink">
+                  <span className="h-1.5 w-1.5 rounded-full bg-ink-2" aria-hidden />
+                  {WARRANTY_STATUS_LABELS[doc.status]}
+                </p>
+              </div>
             </div>
 
             {/* Personal Details */}
