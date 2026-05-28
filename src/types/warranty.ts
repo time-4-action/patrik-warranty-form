@@ -3,6 +3,7 @@ export type WarrantyFileUrls = {
   serial: string;
   full: string;
   closeup: string;
+  extra: string;
 };
 
 export type WarrantyPayload = {

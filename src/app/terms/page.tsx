@@ -94,7 +94,7 @@ export default function TermsPage() {
             </Link>
           </p>
           <p className="mt-5 text-[14px] leading-[1.8] text-ink-2">
-            Starting from <strong className="font-semibold text-ink">March 2023</strong>{" "}
+            Starting from <strong className="font-semibold text-ink">June 2026</strong>{" "}
             this is the only valid way to submit a warranty request to PATRIK
             as a shop, partner or team rider.
           </p>

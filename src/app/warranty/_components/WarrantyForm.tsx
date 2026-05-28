@@ -459,7 +459,8 @@ export function WarrantyForm() {
         serial: File | null;
         full: File | null;
         closeup: File | null;
-    }>({ invoice: null, serial: null, full: null, closeup: null });
+        extra: File | null;
+    }>({ invoice: null, serial: null, full: null, closeup: null, extra: null });
 
     const emailValid = EMAIL_RX.test(email);
     const emailHint =
@@ -585,6 +586,9 @@ export function WarrantyForm() {
             { key: "serial", label: "Serial number photo", status: "pending" },
             { key: "full", label: "Full product photo", status: "pending" },
             { key: "closeup", label: "Closeup photo", status: "pending" },
+            ...(files.extra
+                ? [{ key: "extra", label: "Additional file", status: "pending" } as SubmitStage]
+                : []),
             { key: "record", label: "Transmit warranty record", status: "pending" },
         ];
         setStages(initialStages);
@@ -598,6 +602,7 @@ export function WarrantyForm() {
                 ["serial", files.serial],
                 ["full", files.full],
                 ["closeup", files.closeup],
+                ["extra", files.extra],
             ];
             for (const [slot, file] of fileEntries) {
                 if (file) {
@@ -636,6 +641,7 @@ export function WarrantyForm() {
                     serial: uploads.serial ?? "",
                     full: uploads.full ?? "",
                     closeup: uploads.closeup ?? "",
+                    extra: uploads.extra ?? "",
                 },
                 dataPolicyAccepted: formData.get("dataPolicy") === "on",
             };
@@ -699,7 +705,7 @@ export function WarrantyForm() {
                 productName: "",
                 serialNumber: "",
             });
-            setFiles({ invoice: null, serial: null, full: null, closeup: null });
+            setFiles({ invoice: null, serial: null, full: null, closeup: null, extra: null });
             setLastSubmissionId(confirmedSubmissionId);
             setSubmitSuccess(true);
         } catch (err) {
@@ -942,6 +948,19 @@ export function WarrantyForm() {
                     value={files.closeup}
                     onChange={(f) => setFiles((p) => ({ ...p, closeup: f }))}
                     info="Zoom in on the defect itself. Good lighting, no shadow over the damaged area. A coin or ruler next to it for scale is helpful."
+                />
+            </div>
+
+            <div className="mt-4">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.1em] text-mute">
+                    Optional
+                </p>
+                <UploadCard
+                    id="uploadExtra"
+                    label="Additional photo or video"
+                    value={files.extra}
+                    onChange={(f) => setFiles((p) => ({ ...p, extra: f }))}
+                    info="Optional — add anything else that helps: a video of the problem, another angle, or extra context. Any file type."
                 />
             </div>
 

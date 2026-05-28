@@ -98,6 +98,8 @@ function messageFor(key: string): string {
       return "Uploading the full product photo…";
     case "closeup":
       return "Uploading the closeup photo…";
+    case "extra":
+      return "Uploading your additional file…";
     case "record":
       return "Logging your warranty request…";
     default:

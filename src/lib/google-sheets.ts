@@ -56,6 +56,7 @@ export async function appendWarrantyRow(
     p.fileUrls.serial,
     p.fileUrls.full,
     p.fileUrls.closeup,
+    p.fileUrls.extra,
     p.dataPolicyAccepted ? "TRUE" : "FALSE",
   ].map(escapeCell);
 

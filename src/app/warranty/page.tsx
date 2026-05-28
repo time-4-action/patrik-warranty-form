@@ -44,7 +44,7 @@ export default function WarrantyPage() {
           <div>
             <div className="mb-3 h-0.5 w-8 bg-cyan" />
             <p className="text-[14px] leading-[1.8] text-ink-2">
-              From <strong className="font-semibold text-ink">01.03.2023</strong>{" "}
+              From <strong className="font-semibold text-ink">01.06.2026</strong>{" "}
               this is the only and official way to submit a PATRIK warranty
               request. Always contact your shop/seller first, and submit a
               separate request per product.
