@@ -7,6 +7,7 @@ import { UploadCard } from "./UploadCard";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { ProductNameAutocomplete } from "./ProductNameAutocomplete";
 import { RateLimitModal } from "./RateLimitModal";
+import { SerialHelpModal, defaultSerialTab } from "./SerialHelpModal";
 import { SubmittingOverlay, type SubmitStage } from "./SubmittingOverlay";
 import { InfoTooltip } from "./InfoTooltip";
 import type { WarrantyPayload } from "@/types/warranty";
@@ -414,6 +415,7 @@ export function WarrantyForm() {
     const [rateLimited, setRateLimited] = useState<
       { limit: number; retryAfterSeconds: number } | null
     >(null);
+    const [serialHelp, setSerialHelp] = useState<{ x: number; y: number } | null>(null);
 
     const [typeOfPartner, setTypeOfPartner] = useState("");
     const [countryOfPurchase, setCountryOfPurchase] = useState("");
@@ -827,7 +829,7 @@ export function WarrantyForm() {
             </div>
 
             <SectionHeading>Product Information</SectionHeading>
-            <div className="grid gap-x-10 gap-y-2 md:grid-cols-2">
+            <div className="grid items-start gap-x-10 gap-y-2 md:grid-cols-2">
                 <input type="hidden" name="sku" value={sku} readOnly />
                 <input type="hidden" name="ean" value={ean} readOnly />
                 <ProductNameAutocomplete
@@ -851,12 +853,24 @@ export function WarrantyForm() {
                     value={productCategory}
                     onChange={setProductCategory}
                 />
-                <Field
-                    id="serialNumber"
-                    label="Serial number"
-                    required
-                    info="Serial number is printed on your product."
-                />
+                <div>
+                    <Field
+                        id="serialNumber"
+                        label="Serial number"
+                        required
+                    />
+                    <button
+                        type="button"
+                        className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-cyan-3 underline-offset-2 transition-colors hover:text-cyan-2 hover:underline"
+                        onClick={(e) => setSerialHelp({ x: e.clientX, y: e.clientY })}
+                    >
+                        <svg viewBox="0 0 16 16" fill="none" aria-hidden className="h-3.5 w-3.5">
+                            <path d="M8 1.5c2.5 0 4.5 2 4.5 4.5 0 3-4.5 8-4.5 8S3.5 9 3.5 6C3.5 3.5 5.5 1.5 8 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                            <circle cx="8" cy="6" r="1.6" stroke="currentColor" strokeWidth="1.3" />
+                        </svg>
+                        Where&apos;s my serial number?
+                    </button>
+                </div>
                 <DatePicker
                     id="dateOfFailure"
                     label="Date of product failure"
@@ -1063,6 +1077,13 @@ export function WarrantyForm() {
             limit={rateLimited.limit}
             retryAfterSeconds={rateLimited.retryAfterSeconds}
             onClose={() => setRateLimited(null)}
+          />
+        )}
+        {serialHelp && (
+          <SerialHelpModal
+            defaultTab={defaultSerialTab(productCategory)}
+            origin={serialHelp}
+            onClose={() => setSerialHelp(null)}
           />
         )}
       </>
