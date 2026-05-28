@@ -101,7 +101,7 @@ export function UploadCard({
         onChange={(e) => handle(e.target.files?.[0] ?? null)}
       />
 
-      {info && (
+      {info && !value && (
         <span className="upc-info">
           <InfoTooltip label={label} text={info} />
         </span>
