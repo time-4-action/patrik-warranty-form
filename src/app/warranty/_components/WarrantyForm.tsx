@@ -245,7 +245,7 @@ const PRODUCT_CATEGORIES = [
     "Other",
 ];
 
-const PROBLEM_MIN = 25;
+const PROBLEM_MAX = 200;
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 class RateLimitError extends Error {
@@ -483,7 +483,7 @@ export function WarrantyForm() {
         confirmEmail.length === 0 ? undefined : confirmMatches ? "ok" : "error";
 
     const problemCount = problem.trim().length;
-    const problemOk = problemCount >= PROBLEM_MIN;
+    const problemOk = problemCount > 0 && problemCount <= PROBLEM_MAX;
 
     const daysOfUseTrimmed = daysOfUse.trim();
     const daysOfUseValid = /^\d+$/.test(daysOfUseTrimmed);
@@ -892,8 +892,9 @@ export function WarrantyForm() {
                         placeholder=" "
                         rows={4}
                         autoComplete="off"
+                        maxLength={PROBLEM_MAX}
                         value={problem}
-                        onChange={(e) => setProblem(e.target.value)}
+                        onChange={(e) => setProblem(e.target.value.slice(0, PROBLEM_MAX))}
                     />
                     <label htmlFor="problem">
                         Please describe the problem in detail
@@ -905,11 +906,7 @@ export function WarrantyForm() {
                         text="Be specific: what broke, when you noticed it, and the conditions (wind strength, water type, ride duration). The more detail, the faster we can diagnose."
                     />
                     <FieldHint
-                        text={
-                            problemOk
-                                ? `${problemCount} characters`
-                                : `${problemCount} / ${PROBLEM_MIN} characters — keep going`
-                        }
+                        text={`${problemCount} / ${PROBLEM_MAX} characters`}
                         status={problemOk ? "ok" : undefined}
                     />
                 </div>
