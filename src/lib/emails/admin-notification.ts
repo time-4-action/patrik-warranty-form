@@ -12,6 +12,7 @@ const FILE_LABELS: [keyof WarrantyPayload["fileUrls"], string][] = [
   ["serial", "Serial number photo"],
   ["full", "Full product photo"],
   ["closeup", "Closeup photo"],
+  ["extra", "Additional file"],
 ];
 
 function adminFieldValue(
@@ -119,7 +120,10 @@ export function buildAdminNotification(
     })
     .join("");
 
-  const filesHtml = FILE_LABELS.map(
+  // Optional slots (e.g. "extra") are omitted when no file was uploaded.
+  const presentFiles = FILE_LABELS.filter(([key]) => payload.fileUrls[key]);
+
+  const filesHtml = presentFiles.map(
     ([key, label], i) => `<tr>
         <td style="${lbl}${i === 0 ? "" : border}">${esc(label)}</td>
         <td style="${val}${i === 0 ? "" : border}">
@@ -204,7 +208,7 @@ export function buildAdminNotification(
   textLines.push("", `Receipt: ${receiptUrl}`);
   if (showUploads) {
     textLines.push("", "Uploaded files:");
-    for (const [key, label] of FILE_LABELS) {
+    for (const [key, label] of presentFiles) {
       textLines.push(`  ${label}: ${payload.fileUrls[key]}`);
     }
   }

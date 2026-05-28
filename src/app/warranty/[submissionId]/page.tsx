@@ -161,6 +161,12 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
                   label="Closeup view of the problem"
                   url={doc.fileUrls.closeup}
                 />
+                {doc.fileUrls.extra && (
+                  <UploadLink
+                    label="Additional photo or video"
+                    url={doc.fileUrls.extra}
+                  />
+                )}
               </ul>
             </Section>
 
