@@ -8,11 +8,6 @@ import { PrintButton } from "./_components/PrintButton";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Customer-facing claim status is hidden for now — we're not surfacing the
-// review workflow to customers yet. Flip this to `true` to show the status
-// pill in the meta strip again (the rendering code below is kept intact).
-const SHOW_STATUS = false;
-
 export const metadata: Metadata = {
   title: "PATRIK — Warranty Claim Receipt",
   description: "Confirmation of receipt for your PATRIK warranty claim.",
@@ -84,17 +79,15 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
                 label="Submitted"
                 value={formatDateTime(doc.submittedAt)}
               />
-              {SHOW_STATUS && (
-                <div className="sm:ml-auto">
-                  <p className="font-display text-[10px] font-bold uppercase tracking-[0.22em] text-mute">
-                    Status
-                  </p>
-                  <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-rule bg-[#fafafa] px-2.5 py-1 text-[12px] font-medium text-ink">
-                    <span className="h-1.5 w-1.5 rounded-full bg-ink-2" aria-hidden />
-                    {WARRANTY_STATUS_LABELS[doc.status]}
-                  </p>
-                </div>
-              )}
+              <div className="sm:ml-auto">
+                <p className="font-display text-[10px] font-bold uppercase tracking-[0.22em] text-mute">
+                  Status
+                </p>
+                <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-rule bg-[#fafafa] px-2.5 py-1 text-[12px] font-medium text-ink">
+                  <span className="h-1.5 w-1.5 rounded-full bg-ink-2" aria-hidden />
+                  {WARRANTY_STATUS_LABELS[doc.status]}
+                </p>
+              </div>
             </div>
 
             {/* Personal Details */}
