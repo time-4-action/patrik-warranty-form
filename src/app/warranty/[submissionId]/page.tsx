@@ -83,6 +83,7 @@ export default async function WarrantySubmissionPage({ params }: PageProps) {
               <MetaItem
                 label="Submitted"
                 value={formatDateTime(doc.submittedAt)}
+                className={SHOW_STATUS ? undefined : "sm:ml-auto sm:text-right"}
               />
               {SHOW_STATUS && (
                 <div className="sm:ml-auto">
@@ -234,13 +235,15 @@ function MetaItem({
   label,
   value,
   mono,
+  className,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  className?: string;
 }) {
   return (
-    <div>
+    <div className={className}>
       <p className="font-display text-[10px] font-bold uppercase tracking-[0.22em] text-mute">
         {label}
       </p>
