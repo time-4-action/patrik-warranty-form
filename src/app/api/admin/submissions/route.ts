@@ -1,9 +1,7 @@
 import { checkInternalAdmin } from "@/lib/admin-auth";
 import { listWarrantySubmissions } from "@/lib/warranty-mongo";
 import {
-  ASSIGNEES,
   WARRANTY_STATUSES,
-  type Assignee,
   type WarrantyStatus,
 } from "@/types/warranty-settings";
 
@@ -27,8 +25,8 @@ export async function GET(request: Request) {
   const assignee =
     assigneeParam === "unassigned" || assigneeParam === "all"
       ? assigneeParam
-      : assigneeParam && (ASSIGNEES as readonly string[]).includes(assigneeParam)
-        ? (assigneeParam as Assignee)
+      : assigneeParam && assigneeParam.trim()
+        ? assigneeParam.trim()
         : undefined;
 
   try {

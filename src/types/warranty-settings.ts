@@ -177,7 +177,10 @@ export const CUSTOMER_STATUS_LABELS: Record<CustomerStatus, string> = {
   done: "Done",
 };
 
-// Assignees are hard-coded to match the existing operations roster.
+// Assignees now come from Auth0 (warranty-admin users) via the t4a-admin
+// portal; the stored value is that user's display name — a free string.
+// ASSIGNEES is retained only as legacy seed data and is no longer used to
+// validate or normalise assignee values.
 export const ASSIGNEES = [
   "Tine",
   "Patrik",
@@ -187,7 +190,7 @@ export const ASSIGNEES = [
   "Nejc",
   "Zala",
 ] as const;
-export type Assignee = (typeof ASSIGNEES)[number];
+export type Assignee = string;
 
 export type WorkflowFields = {
   status: WarrantyStatus;
@@ -231,7 +234,10 @@ function normaliseEnum<T extends string>(
 export function normaliseWorkflow(doc: Record<string, unknown>): WorkflowFields {
   return {
     status: normaliseStatus(doc.status),
-    assignee: normaliseEnum(doc.assignee, ASSIGNEES),
+    assignee:
+      typeof doc.assignee === "string" && doc.assignee.trim()
+        ? doc.assignee
+        : null,
     warrantyType: normaliseEnum(doc.warrantyType, WARRANTY_TYPES),
     suggestion: normaliseEnum(doc.suggestion, WARRANTY_SUGGESTIONS),
     factoryStatus: normaliseEnum(doc.factoryStatus, FACTORY_STATUSES),

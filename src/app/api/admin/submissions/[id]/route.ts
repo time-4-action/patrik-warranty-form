@@ -5,13 +5,11 @@ import {
   type WorkflowPatch,
 } from "@/lib/warranty-mongo";
 import {
-  ASSIGNEES,
   CUSTOMER_STATUSES,
   FACTORY_STATUSES,
   WARRANTY_STATUSES,
   WARRANTY_SUGGESTIONS,
   WARRANTY_TYPES,
-  type Assignee,
   type CustomerStatus,
   type FactoryStatus,
   type WarrantyStatus,
@@ -74,11 +72,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     patch.status = v ?? "open";
   }
   if ("assignee" in body) {
-    const v = parseEnum<Assignee>(body.assignee, ASSIGNEES);
-    if (v === undefined) {
-      return Response.json({ error: "invalid assignee", allowed: ASSIGNEES }, { status: 400 });
+    const raw = body.assignee;
+    if (raw === null || raw === "") {
+      patch.assignee = null;
+    } else if (typeof raw === "string" && raw.trim().length > 0 && raw.trim().length <= 100) {
+      patch.assignee = raw.trim();
+    } else {
+      return Response.json({ error: "invalid assignee" }, { status: 400 });
     }
-    patch.assignee = v;
   }
   if ("warrantyType" in body) {
     const v = parseEnum<WarrantyType>(body.warrantyType, WARRANTY_TYPES);
