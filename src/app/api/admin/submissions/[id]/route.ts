@@ -1,4 +1,6 @@
 import { checkInternalAdmin } from "@/lib/admin-auth";
+import { diffClaimFields, extractAuditEnvelope } from "@/lib/audit-diff";
+import { recordAuditEntry } from "@/lib/warranty-audit";
 import {
   findWarrantyBySubmissionId,
   updateWarrantyWorkflow,
@@ -60,6 +62,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return Response.json({ error: "invalid json" }, { status: 400 });
   }
 
+  // Pull the audit envelope out before applying anything — it must never be
+  // persisted onto the claim. Absent → behave exactly as before (no auditing).
+  const audit = extractAuditEnvelope(body);
+
   const patch: WorkflowPatch = {};
   if ("status" in body) {
     const v = parseEnum<WarrantyStatus>(body.status, WARRANTY_STATUSES);
@@ -111,12 +117,33 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   if (Object.keys(patch).length === 0) {
+    // A message-only audit (no field change) still records an entry (§8.2);
+    // for any other caller this stays the backward-compatible 400.
+    if (audit && audit.message.trim()) {
+      try {
+        const current = await findWarrantyBySubmissionId(id);
+        if (!current) return Response.json({ error: "not found" }, { status: 404 });
+        await recordAuditEntry("claim", id, audit, []);
+        return Response.json(current);
+      } catch (err) {
+        console.error("admin submission audit-only failed", { id, err });
+        return Response.json({ error: "update failed" }, { status: 500 });
+      }
+    }
     return Response.json({ error: "no fields to update" }, { status: 400 });
   }
 
   try {
+    // Load the before-state for the diff only when auditing is requested.
+    const before = audit ? await findWarrantyBySubmissionId(id) : null;
     const doc = await updateWarrantyWorkflow(id, patch);
     if (!doc) return Response.json({ error: "not found" }, { status: 404 });
+    // Record after the update is persisted, so history never shows a change
+    // that didn't land. recordAuditEntry is best-effort and never throws.
+    if (audit) {
+      const changes = before ? diffClaimFields(before, patch) : [];
+      await recordAuditEntry("claim", id, audit, changes);
+    }
     return Response.json(doc);
   } catch (err) {
     console.error("admin submission update failed", { id, err });
