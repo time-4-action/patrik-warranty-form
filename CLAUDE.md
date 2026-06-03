@@ -111,7 +111,14 @@ Env vars: `SMTP_HOST`, `SMTP_PORT` (465 = SSL, 587 = STARTTLS), `SMTP_USER`, `SM
 
 ## Git workflow
 
-`main` is protected — **no direct pushes**. All changes must go through a PR and require **at least 1 approval** before merging. Always branch off `main`, open a PR, and get it reviewed.
+**This form is in production.** `main` is the protected production branch — **no direct pushes**. `dev` is the active integration branch where day-to-day work lands.
+
+Workflow:
+
+- Branch feature/fix branches off `dev` (not `main`).
+- Open PRs into `dev`. Merging into `dev` requires **at least 1 approval**.
+- Promote to production by opening a PR from `dev` → `main` (also needs 1 approval).
+- Never push directly to `main` or `dev`.
 
 ## Production infrastructure
 
