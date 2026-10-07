@@ -1,13 +1,45 @@
 # Deployment
 
-## Dev environment (CI)
+`.github/workflows/deploy.yml` runs `check` (lint + Docker build) on every pull request and push.
+A green check on `dev` or `main` builds the image, pushes it to GHCR and rolls that branch's
+server onto that exact commit over SSH. If the container is not healthy on that commit within
+60 s, it rolls back to the image that was running before. `verify` then checks the public URL.
+The servers only pull images; they never build.
 
-Every push to `dev` that passes `check` is deployed to
-`https://warranty.dev.patrik-international.com` by `.github/workflows/deploy.yml`. The VM only pulls
-images from GHCR; it never builds. Production (`main`) is still deployed by hand
-(`scripts/build.bat` / `push.bat`).
+| Branch | Environment | Image tags | Server dir | Health port | Public URL |
+|---|---|---|---|---|---|
+| `dev` | `development` | `:dev-<sha>`, `:dev` | `/data/stack/apps/patrik-international/warranty` (dev VM) | `127.0.0.1:13011` | https://warranty.dev.patrik-international.com |
+| `main` | `production` | `:<sha>`, `:latest` | `/data/stack/apps/patrik-international/warranty` (prod VM) | `127.0.0.1:4000` | https://patrik-international.com |
 
-### GitHub (once)
+To roll production back by hand, on the server:
+`export APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form:<sha> && docker compose up -d`
+(`docker login ghcr.io` first if the package is private), or re-run that commit's workflow.
+
+## Production (setup, once)
+
+GitHub:
+
+- Share the organization secrets `PROD_DEPLOY_HOST`, `PROD_DEPLOY_SSH_KEY`,
+  `PROD_DEPLOY_FINGERPRINT` with this repository (the same ones t4a-admin uses, if the warranty
+  form runs on that VM).
+- Create the `production` environment and restrict it to the `main` branch.
+- Repository variable `NEXT_PUBLIC_GA_MEASUREMENT_ID` (production only; dev builds without GA).
+  Optional: `PRODUCTION_URL`.
+
+Server, in `/data/stack/apps/patrik-international/warranty` (owned by `deploy`, which must be in
+the `docker` group):
+
+- `docker-compose.yml` = `deploy/docker-compose.yml`. Same container name, port (4000) and
+  `.env` as the hand-deployed setup, so nginx needs no change. A copy with a fixed `image:` tag
+  ignores `APP_IMAGE`, and every deploy would fail its `APP_VERSION` check and roll back.
+- `.env`: the existing production secrets, unchanged. Never set `MAIL_REDIRECT_TO`,
+  `S3_KEY_PREFIX` or `SEED_MOCK_DATA` here.
+
+`scripts/build.bat` / `push.bat` (Docker Hub) are no longer used by production.
+
+## Dev environment (setup, once)
+
+### GitHub
 
 - Share the organization secrets `DEV_DEPLOY_HOST`, `DEV_DEPLOY_SSH_KEY`,
   `DEV_DEPLOY_FINGERPRINT` with this repository.
@@ -17,7 +49,7 @@ images from GHCR; it never builds. Production (`main`) is still deployed by hand
 - After the first deploy, check the GHCR package
   `ghcr.io/time-4-action/patrik-warranty-form` grants this repository's Actions write access.
 
-### Dev VM (once, as `deploy`)
+### Dev VM (as `deploy`)
 
 DNS and TLS: the dev domain is `warranty.dev.patrik-international.com`, which is **outside** the
 `*.dev.time-4-action.com` wildcard, so it needs its own setup:

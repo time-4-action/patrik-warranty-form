@@ -175,7 +175,7 @@ Leave unset to disable analytics.
 |---|---|
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 Measurement ID, e.g. `G-XXXXXXXXXX` |
 
-> **Docker / build note:** `NEXT_PUBLIC_*` vars are baked into the JS bundle at build time. `build.bat` reads `.env` and passes this as a `--build-arg` automatically.
+> **Docker / build note:** `NEXT_PUBLIC_*` vars are baked into the JS bundle at build time. CI (`.github/workflows/deploy.yml`) passes it from a repository variable; see `docs/deployment.md`.
 
 ### Sentry *(optional)*
 

@@ -1,11 +1,12 @@
 # check -> deploy -> verify. Same shape as t4a-mk-automation's pipeline.
 #
-# Checks every pull request and every push. A green check on `dev` builds the image, pushes it
-# to GHCR as :dev-<sha> + :dev and rolls the dev VM onto that exact SHA over SSH, rolling back
-# to the previous image if it does not come up healthy on that commit. `verify` then checks the
-# public URL (warranty.dev.patrik-international.com).
+# Checks every pull request and every push. A green check on `dev` or `main` builds the image,
+# pushes it to GHCR and rolls that branch's server onto that exact SHA over SSH, rolling back to
+# the previous image if it does not come up healthy on that commit. `verify` then checks the
+# public URL.
 #
-# Production (main) is not deployed from here yet; it still goes out by hand.
+#   dev  -> development env, DEV_DEPLOY_* secrets,  :dev-<sha> + :dev,  warranty.dev.patrik-international.com
+#   main -> production env,  PROD_DEPLOY_* secrets, :<sha> + :latest,   patrik-international.com
 name: ci
 on:
   push:
@@ -24,13 +25,17 @@ permissions:
 
 env:
   IMAGE: ghcr.io/time-4-action/patrik-warranty-form
-  # Dev tags are prefixed so a dev build can never be mistaken for a release.
-  TAG: dev-${{ github.sha }}
-  CHANNEL: dev
-  # Loopback port the dev compose publishes, for the health check on the VM. The dev VM hosts
-  # several apps, so each gets its own (see deploy/docker-compose.dev.yml).
-  HOST_PORT: "13011"
-  PUBLIC_URL: ${{ vars.DEV_URL || 'https://warranty.dev.patrik-international.com' }}
+  # Everything below differs per branch: main is production, anything else (only dev reaches
+  # the deploy job) is development.
+  # Image tag; dev ones are prefixed so a dev build can never be mistaken for a release.
+  TAG: ${{ github.ref_name == 'main' && github.sha || format('dev-{0}', github.sha) }}
+  # Moving tag the server's compose file falls back to.
+  CHANNEL: ${{ github.ref_name == 'main' && 'latest' || 'dev' }}
+  # Host port the server's compose publishes, for the health check on the VM
+  # (deploy/docker-compose.yml: 4000, behind nginx; deploy/docker-compose.dev.yml: 13011).
+  HOST_PORT: ${{ github.ref_name == 'main' && '4000' || '13011' }}
+  # Overridable with the PRODUCTION_URL / DEV_URL repository variables.
+  PUBLIC_URL: ${{ github.ref_name == 'main' && (vars.PRODUCTION_URL || 'https://patrik-international.com') || (vars.DEV_URL || 'https://warranty.dev.patrik-international.com') }}
 
 jobs:
   check:
@@ -57,25 +62,28 @@ jobs:
 
   deploy:
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-24.04
-    # The DEV_DEPLOY_* SSH secrets are organization secrets. GHCR needs none: the job's own
+    # The *_DEPLOY_* SSH secrets are organization secrets. GHCR needs none: the job's own
     # GITHUB_TOKEN pushes the image and lets the VM pull it.
-    environment: development
+    # Each environment only accepts its own branch (repository settings).
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     permissions:
       contents: read
       packages: write
     concurrency:
-      group: deploy-dev
+      group: deploy-${{ github.ref_name == 'main' && 'prod' || 'dev' }}
       cancel-in-progress: false
     timeout-minutes: 30
     steps:
+      # The `main && PROD || DEV` picks below would fall through to the dev server if the
+      # production secret were empty; fail loudly instead.
       - name: Check deploy secrets and variables
         env:
-          HOST: ${{ secrets.DEV_DEPLOY_HOST }}
+          HOST: ${{ github.ref_name == 'main' && secrets.PROD_DEPLOY_HOST || '' }}${{ github.ref_name != 'main' && secrets.DEV_DEPLOY_HOST || '' }}
           MAPBOX: ${{ vars.NEXT_PUBLIC_MAPBOX_API_KEY }}
         run: |
-          [ -n "$HOST" ] || { echo "::error::DEV_DEPLOY_HOST is empty or not shared with this repository"; exit 1; }
+          [ -n "$HOST" ] || { echo "::error::deploy host secret for ${{ github.ref_name }} is empty or not shared with this repository"; exit 1; }
           # Baked into the image; the app refuses to boot without it.
           [ -n "$MAPBOX" ] || { echo "::error::repository variable NEXT_PUBLIC_MAPBOX_API_KEY is not set"; exit 1; }
 
@@ -94,11 +102,12 @@ jobs:
           push: true
           platforms: linux/amd64
           # NEXT_PUBLIC_* are baked into the client bundle at build time, so they come from
-          # repository variables here. GA stays off in dev. GIT_SHA is baked in as APP_VERSION,
+          # repository variables here. GA only in production. GIT_SHA is baked in as APP_VERSION,
           # which the server checks after rollout.
           build-args: |
             GIT_SHA=${{ github.sha }}
             NEXT_PUBLIC_MAPBOX_API_KEY=${{ vars.NEXT_PUBLIC_MAPBOX_API_KEY }}
+            NEXT_PUBLIC_GA_MEASUREMENT_ID=${{ github.ref_name == 'main' && vars.NEXT_PUBLIC_GA_MEASUREMENT_ID || '' }}
           tags: |
             ${{ env.IMAGE }}:${{ env.TAG }}
             ${{ env.IMAGE }}:${{ env.CHANNEL }}
@@ -110,11 +119,11 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          host: ${{ secrets.DEV_DEPLOY_HOST }}
+          host: ${{ github.ref_name == 'main' && secrets.PROD_DEPLOY_HOST || secrets.DEV_DEPLOY_HOST }}
           # The SSH login on the VM; override with the DEPLOY_USER variable.
           username: ${{ vars.DEPLOY_USER || 'deploy' }}
-          key: ${{ secrets.DEV_DEPLOY_SSH_KEY }}
-          fingerprint: ${{ secrets.DEV_DEPLOY_FINGERPRINT }}
+          key: ${{ github.ref_name == 'main' && secrets.PROD_DEPLOY_SSH_KEY || secrets.DEV_DEPLOY_SSH_KEY }}
+          fingerprint: ${{ github.ref_name == 'main' && secrets.PROD_DEPLOY_FINGERPRINT || secrets.DEV_DEPLOY_FINGERPRINT }}
           timeout: 30s
           command_timeout: 15m
           envs: GHCR_USER,GHCR_TOKEN
