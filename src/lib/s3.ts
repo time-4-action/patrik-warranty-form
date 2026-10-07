@@ -14,3 +14,5 @@ export const s3 = new S3Client({
 
 export const S3_BUCKET = process.env.S3_BUCKET!;
 export const S3_PUBLIC_BASE = process.env.S3_PUBLIC_BASE!;
+// Dev sets e.g. "dev/uploads/warranty" so test files never mix with real claims.
+export const S3_KEY_PREFIX = process.env.S3_KEY_PREFIX || "uploads/warranty";

@@ -27,7 +27,23 @@ export type SendMailInput = {
   replyTo?: string;
 };
 
-export async function sendMail(input: SendMailInput): Promise<void> {
+// Non-production envs set MAIL_REDIRECT_TO so every email (customer + admin)
+// goes to that one inbox instead of real customers/admins. The original
+// recipients are kept in the subject so it's clear who would have got it.
+function applyRedirect(input: SendMailInput): SendMailInput {
+  const redirect = process.env.MAIL_REDIRECT_TO;
+  if (!redirect) return input;
+  const original = [input.to, input.bcc].flat().filter(Boolean).join(", ");
+  return {
+    ...input,
+    to: redirect,
+    bcc: undefined,
+    subject: `[DEV → ${original}] ${input.subject}`,
+  };
+}
+
+export async function sendMail(mail: SendMailInput): Promise<void> {
+  const input = applyRedirect(mail);
   const transporter = getTransporter();
   await transporter.sendMail({
     from: process.env.SMTP_FROM,

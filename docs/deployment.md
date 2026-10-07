@@ -1,0 +1,59 @@
+# Deployment
+
+## Dev environment (CI)
+
+Every push to `dev` that passes `check` is deployed to
+`https://warranty.dev.patrik-international.com` by `.github/workflows/deploy.yml`. The VM only pulls
+images from GHCR; it never builds. Production (`main`) is still deployed by hand
+(`scripts/build.bat` / `push.bat`).
+
+### GitHub (once)
+
+- Share the organization secrets `DEV_DEPLOY_HOST`, `DEV_DEPLOY_SSH_KEY`,
+  `DEV_DEPLOY_FINGERPRINT` with this repository.
+- Create the `development` environment and restrict it to the `dev` branch.
+- Repository variable `NEXT_PUBLIC_MAPBOX_API_KEY` (baked into the client bundle at build time).
+  Optional: `DEV_URL`, `DEPLOY_USER`.
+- After the first deploy, check the GHCR package
+  `ghcr.io/time-4-action/patrik-warranty-form` grants this repository's Actions write access.
+
+### Dev VM (once, as `deploy`)
+
+DNS and TLS: the dev domain is `warranty.dev.patrik-international.com`, which is **outside** the
+`*.dev.time-4-action.com` wildcard, so it needs its own setup:
+
+- DNS: an A record `warranty.dev` in the `patrik-international.com` zone pointing at the dev VM.
+  Use DNS only (grey cloud): Cloudflare's free certificate covers only one level
+  (`*.patrik-international.com`), not `warranty.dev.…`. A `*.dev` record instead makes every
+  future Patrik dev app work without new DNS.
+- TLS: Traefik (`/data/stack/infra/traefik/docker-compose.yml`) pins its certificates at the
+  `websecure` entrypoint, so the `*.dev.time-4-action.com` wildcard alone would be served for
+  this name. Add a second wildcard next to `domains[0]`, then `docker compose up -d` there:
+
+  ```yaml
+  - --entrypoints.websecure.http.tls.domains[1].main=dev.patrik-international.com
+  - --entrypoints.websecure.http.tls.domains[1].sans=*.dev.patrik-international.com
+  ```
+
+  The `le` resolver uses the Cloudflare DNS challenge, so its API token (Traefik `.env`) must
+  have DNS edit rights on the `patrik-international.com` zone too.
+
+In `/data/stack/apps/patrik-international/warranty`:
+
+- `docker-compose.yml` = `deploy/docker-compose.dev.yml` (loopback port `13011`, must be free);
+- `.env` from `deploy/dev.env.example`: DEV Google Sheet, `S3_KEY_PREFIX=dev/uploads/warranty`,
+  working SMTP credentials and `MAIL_REDIRECT_TO` set to your own inbox. Never copy the
+  production `.env`.
+
+The deploy only swaps images: copy changes to these files to the server by hand.
+
+### Dev Mongo
+
+A `mongo:7.0` container next to the app, not reachable from outside. The compose file sets
+`SEED_MOCK_DATA=true`, so whenever the app boots against an empty `warranty` collection it inserts
+80 mock claims (`src/lib/dev-seed.ts`, run from `instrumentation.ts`). Nothing to copy or run by
+hand. To reset to fresh mock data:
+
+```sh
+docker compose down -v && docker compose up -d
+```

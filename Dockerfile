@@ -36,4 +36,10 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# CI passes the commit SHA; the deploy checks the container reports it as
+# APP_VERSION. Last, so it doesn't bust the cache above.
+ARG GIT_SHA=unknown
+ENV APP_VERSION=$GIT_SHA
+LABEL org.opencontainers.image.revision=$GIT_SHA
+
 CMD ["node", "server.js"]
