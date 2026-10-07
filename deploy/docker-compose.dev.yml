@@ -1,8 +1,11 @@
-# Dev compose for /data/stack/apps/time-4-action/warranty-form on the DEV VM (save it there as
+# Dev compose for /data/stack/apps/patrik-international/warranty on the DEV VM (save it there as
 # docker-compose.yml, next to .env). CI exports
 # APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form:dev-<sha>; without it this runs :dev.
-# Traefik on the dev VM routes warranty.dev.patrik-international.com here. That name is outside the
-# *.dev.time-4-action.com wildcard cert, so it needs DNS + its own cert (docs/deployment.md).
+# Traefik on the dev VM routes warranty.dev.patrik-international.com here, using its
+# *.dev.patrik-international.com wildcard cert (docs/deployment.md).
+# Fixed project name: container/volume names don't depend on the directory name.
+name: patrik-warranty-dev
+
 services:
   patrik-warranty-form:
     image: ${APP_IMAGE:-ghcr.io/time-4-action/patrik-warranty-form:dev}
@@ -34,7 +37,7 @@ services:
 
   # Throwaway dev database, reachable only from the app (no published port). The app seeds it
   # with mock claims whenever it starts against an empty one. To reseed from scratch:
-  #   docker compose down && docker volume rm warranty-form_mongo-data && docker compose up -d
+  #   docker compose down -v && docker compose up -d
   mongo:
     image: mongo:7.0
     container_name: patrik-warranty-mongo-dev

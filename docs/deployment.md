@@ -38,7 +38,7 @@ DNS and TLS: the dev domain is `warranty.dev.patrik-international.com`, which is
   The `le` resolver uses the Cloudflare DNS challenge, so its API token (Traefik `.env`) must
   have DNS edit rights on the `patrik-international.com` zone too.
 
-In `/data/stack/apps/time-4-action/warranty-form`:
+In `/data/stack/apps/patrik-international/warranty`:
 
 - `docker-compose.yml` = `deploy/docker-compose.dev.yml` (loopback port `13011`, must be free);
 - `.env` from `deploy/dev.env.example`: DEV Google Sheet, `S3_KEY_PREFIX=dev/uploads/warranty`,
@@ -55,5 +55,5 @@ A `mongo:7.0` container next to the app, not reachable from outside. The compose
 hand. To reset to fresh mock data:
 
 ```sh
-docker compose down && docker volume rm warranty-form_mongo-data && docker compose up -d
+docker compose down -v && docker compose up -d
 ```

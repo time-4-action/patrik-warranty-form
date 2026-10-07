@@ -122,7 +122,7 @@ Workflow:
 
 ## CI/CD and dev environment
 
-`.github/workflows/deploy.yml` (same shape as t4a-mk-automation): `check` runs `npm run lint` and a Docker build on every PR and push; a push to `dev` builds and pushes `ghcr.io/time-4-action/patrik-warranty-form:dev-<sha>` + `:dev`, SSHes to the dev VM (`DEV_DEPLOY_*` org secrets), swaps the image in `/data/stack/apps/time-4-action/warranty-form`, and rolls back unless `/api/health` on `127.0.0.1:13011` is green and `APP_VERSION` equals the commit SHA. `verify` then curls `https://warranty.dev.patrik-international.com/api/health`. Production (`main`) is not deployed by CI yet.
+`.github/workflows/deploy.yml` (same shape as t4a-mk-automation): `check` runs `npm run lint` and a Docker build on every PR and push; a push to `dev` builds and pushes `ghcr.io/time-4-action/patrik-warranty-form:dev-<sha>` + `:dev`, SSHes to the dev VM (`DEV_DEPLOY_*` org secrets), swaps the image in `/data/stack/apps/patrik-international/warranty`, and rolls back unless `/api/health` on `127.0.0.1:13011` is green and `APP_VERSION` equals the commit SHA. `verify` then curls `https://warranty.dev.patrik-international.com/api/health`. Production (`main`) is not deployed by CI yet.
 
 Dev runs its own throwaway Mongo (`deploy/docker-compose.dev.yml`), which the app seeds with mock claims at boot (`src/lib/dev-seed.ts`, gated by `SEED_MOCK_DATA=true` + empty `warranty` collection). Dev uses a DEV Google Sheet, `S3_KEY_PREFIX=dev/uploads/warranty`, and `MAIL_REDIRECT_TO` (in `src/lib/mail.ts`) so every email goes to one inbox instead of customers/admins. Server setup: `docs/deployment.md`.
 
