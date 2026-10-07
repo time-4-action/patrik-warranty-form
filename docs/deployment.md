@@ -26,11 +26,17 @@ DNS and TLS: the dev domain is `warranty.dev.patrik-international.com`, which is
   Use DNS only (grey cloud): Cloudflare's free certificate covers only one level
   (`*.patrik-international.com`), not `warranty.dev.…`. A `*.dev` record instead makes every
   future Patrik dev app work without new DNS.
-- TLS: Traefik must have a certificate for this name (the `*.dev.time-4-action.com` wildcard
-  does not match). Best: a second wildcard, `*.dev.patrik-international.com`, issued the same
-  way as the time-4-action one (Let's Encrypt over the Cloudflare DNS API). Otherwise, if Traefik
-  has an HTTP-01/TLS-ALPN resolver, add `traefik.http.routers.warranty.tls.certresolver=<name>`
-  to the compose labels.
+- TLS: Traefik (`/data/stack/infra/traefik/docker-compose.yml`) pins its certificates at the
+  `websecure` entrypoint, so the `*.dev.time-4-action.com` wildcard alone would be served for
+  this name. Add a second wildcard next to `domains[0]`, then `docker compose up -d` there:
+
+  ```yaml
+  - --entrypoints.websecure.http.tls.domains[1].main=dev.patrik-international.com
+  - --entrypoints.websecure.http.tls.domains[1].sans=*.dev.patrik-international.com
+  ```
+
+  The `le` resolver uses the Cloudflare DNS challenge, so its API token (Traefik `.env`) must
+  have DNS edit rights on the `patrik-international.com` zone too.
 
 In `/data/stack/apps/time-4-action/warranty-form`:
 
