@@ -1,0 +1,22 @@
+# Production compose for /data/stack/apps/patrik-international/warranty on the production VM
+# (save it there as docker-compose.yml, next to .env). CI exports
+# APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form:<commit sha>; without it this runs :latest.
+# The VM never builds: images come from GHCR. Copy changes to the server by hand; the deploy only
+# swaps images.
+#
+# No top-level `name:` on purpose: the project stays "warranty" (the directory name), so CI takes
+# over the container that was started by hand without a name clash.
+services:
+  patrik-warranty-form:
+    image: ${APP_IMAGE:-ghcr.io/time-4-action/patrik-warranty-form:latest}
+    container_name: patrik-warranty-form
+    # nginx on the host proxies patrik-international.com here; CI health-checks 127.0.0.1:4000.
+    ports:
+      - "4000:3000"
+    # Production secrets (Mongo, Sheets, S3, SMTP, Sentry, ...). No MAIL_REDIRECT_TO,
+    # S3_KEY_PREFIX or SEED_MOCK_DATA here.
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    restart: unless-stopped
