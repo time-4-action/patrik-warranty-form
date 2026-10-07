@@ -30,7 +30,7 @@ On submit:
 1. `crypto.randomUUID()` generates a `submissionId`
 2. Each file slot calls `POST /api/upload-url` → gets `{ presignedUrl, publicUrl }`
 3. Browser PUTs file to presigned URL
-4. Public URLs collected as `uploads/warranty/<submissionId>/<slot>.<ext>`
+4. Public URLs collected as `<S3_KEY_PREFIX>/<submissionId>/<slot>.<ext>` (`S3_KEY_PREFIX` defaults to `uploads/warranty`; dev uses `dev/uploads/warranty`)
 
 The `submissionId` groups all 4 files for one warranty claim under the same path — easy to look up later.
 
@@ -120,10 +120,16 @@ Workflow:
 - Promote to production by opening a PR from `dev` → `main` (also needs 1 approval).
 - Never push directly to `main` or `dev`.
 
+## CI/CD and dev environment
+
+`.github/workflows/deploy.yml` (same shape as t4a-mk-automation): `check` runs `npm run lint` and a Docker build on every PR and push; a push to `dev` or `main` builds and pushes `ghcr.io/time-4-action/patrik-warranty-form` (`:dev-<sha>` + `:dev`, or `:<sha>` + `:latest`), SSHes to that branch's server (`DEV_DEPLOY_*` / `PROD_DEPLOY_*` org secrets), swaps the image in `/data/stack/apps/patrik-international/warranty`, and rolls back unless `/api/health` on the loopback port (dev `13011`, prod `4000`) is green and `APP_VERSION` equals the commit SHA. `verify` then curls the public `/api/health` (`warranty.dev.patrik-international.com` / `patrik-international.com`). Server compose files: `deploy/docker-compose.dev.yml` (dev) and `deploy/docker-compose.yml` (prod).
+
+Dev runs its own throwaway Mongo (`deploy/docker-compose.dev.yml`), which the app seeds with mock claims at boot (`src/lib/dev-seed.ts`, gated by `SEED_MOCK_DATA=true` + empty `warranty` collection). Dev uses a DEV Google Sheet, `S3_KEY_PREFIX=dev/uploads/warranty`, and `MAIL_REDIRECT_TO` (in `src/lib/mail.ts`) so every email goes to one inbox instead of customers/admins. Server setup: `docs/deployment.md`.
+
 ## Production infrastructure
 
 - **Boot-time env validation** — `src/instrumentation.ts` runs `assertServerEnv()` from `src/lib/env.ts` and `assertNotificationsConfig()` from `src/lib/notifications-config.ts` when the Node runtime starts. A missing required env var or an empty `adminRecipients` array throws and the server fails to start, instead of crashing on the first user request.
 - **`GET /api/health`** — pings Mongo, verifies the SMTP transport, asserts presence of Sheets env vars. Returns `200 { status: "ok", checks }` or `503 { status: "degraded", checks }`. Use it for uptime monitoring.
 - **Sentry** — `sentry.{client,server,edge}.config.ts` plus `instrumentation.ts → onRequestError`. All `init()` calls are gated on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` — leave them unset locally and Sentry stays inactive. `next.config.ts` is wrapped in `withSentryConfig` for source-map upload (needs `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` at build time only).
-- **Google Analytics 4** — `NEXT_PUBLIC_GA_MEASUREMENT_ID` is a build-time var (baked into the JS bundle). `scripts/build.bat` reads it from `.env` and passes it as a Docker `--build-arg`. Inactive if unset.
+- **Google Analytics 4** — `NEXT_PUBLIC_GA_MEASUREMENT_ID` is a build-time var (baked into the JS bundle). CI passes it from the `NEXT_PUBLIC_GA_MEASUREMENT_ID` repository variable as a Docker `--build-arg`, on `main` builds only. Inactive if unset.
 - **Roadmap** — `docs/PRODUCTION.md` tracks deferred production items (CI, indexes, CSP, Mongo backup, etc.) with a one-line problem/fix/reason for each.

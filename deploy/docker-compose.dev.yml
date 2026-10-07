@@ -1,0 +1,61 @@
+# Dev compose for /data/stack/apps/patrik-international/warranty on the DEV VM (save it there as
+# docker-compose.yml, next to .env). CI exports
+# APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form:dev-<sha>; without it this runs :dev.
+# Traefik on the dev VM routes warranty.dev.patrik-international.com here, using its
+# *.dev.patrik-international.com wildcard cert (docs/deployment.md).
+# Fixed project name: container/volume names don't depend on the directory name.
+name: patrik-warranty-dev
+
+services:
+  patrik-warranty-form:
+    image: ${APP_IMAGE:-ghcr.io/time-4-action/patrik-warranty-form:dev}
+    container_name: patrik-warranty-form-dev
+    # Loopback only, for CI's health check on the VM (HOST_PORT in the workflow). The public
+    # way in is Traefik. 13011, not 3000: other apps on the dev VM already use it.
+    ports:
+      - "127.0.0.1:13011:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      # Dev Mongo below, never the production cluster.
+      MONGODB_URI: mongodb://mongo:27017/patrik-dev
+      # The app fills the dev Mongo with mock claims on boot when it is empty (src/lib/dev-seed.ts).
+      SEED_MOCK_DATA: "true"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - default
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.http.routers.warranty.rule=Host(`warranty.dev.patrik-international.com`)
+      - traefik.http.services.warranty.loadbalancer.server.port=3000
+    restart: unless-stopped
+
+  # Throwaway dev database, reachable only from the app (no published port). The app seeds it
+  # with mock claims whenever it starts against an empty one. To reseed from scratch:
+  #   docker compose down -v && docker compose up -d
+  mongo:
+    image: mongo:7.0
+    container_name: patrik-warranty-mongo-dev
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+    environment:
+      MONGO_INITDB_DATABASE: patrik-dev
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+
+networks:
+  web:
+    external: true
