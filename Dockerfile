@@ -24,6 +24,11 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Same value the client bundle was built with, so the boot check in
+# src/lib/env.ts sees it without repeating it in the server's .env.
+ARG NEXT_PUBLIC_MAPBOX_API_KEY
+ENV NEXT_PUBLIC_MAPBOX_API_KEY=$NEXT_PUBLIC_MAPBOX_API_KEY
+
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
