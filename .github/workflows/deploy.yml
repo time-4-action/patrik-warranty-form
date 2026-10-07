@@ -70,11 +70,14 @@ jobs:
       cancel-in-progress: false
     timeout-minutes: 30
     steps:
-      - name: Check deploy secrets
+      - name: Check deploy secrets and variables
         env:
           HOST: ${{ secrets.DEV_DEPLOY_HOST }}
+          MAPBOX: ${{ vars.NEXT_PUBLIC_MAPBOX_API_KEY }}
         run: |
           [ -n "$HOST" ] || { echo "::error::DEV_DEPLOY_HOST is empty or not shared with this repository"; exit 1; }
+          # Baked into the image; the app refuses to boot without it.
+          [ -n "$MAPBOX" ] || { echo "::error::repository variable NEXT_PUBLIC_MAPBOX_API_KEY is not set"; exit 1; }
 
       - uses: actions/checkout@v7
 
