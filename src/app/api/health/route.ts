@@ -47,7 +47,12 @@ export async function GET() {
   };
   const allOk = Object.values(checks).every((c) => c.ok);
   return Response.json(
-    { status: allOk ? "ok" : "degraded", checks },
+    {
+      status: allOk ? "ok" : "degraded",
+      // Commit SHA the image was built from (Dockerfile GIT_SHA → APP_VERSION).
+      version: process.env.APP_VERSION ?? "unknown",
+      checks,
+    },
     { status: allOk ? 200 : 503 },
   );
 }
