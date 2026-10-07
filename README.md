@@ -173,9 +173,7 @@ Leave unset to disable analytics.
 
 | Variable | Description |
 |---|---|
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 Measurement ID, e.g. `G-XXXXXXXXXX` |
-
-> **Docker / build note:** `NEXT_PUBLIC_*` vars are baked into the JS bundle at build time. CI (`.github/workflows/deploy.yml`) passes it from a repository variable; see `docs/deployment.md`.
+| `GA_MEASUREMENT_ID` | GA4 Measurement ID, e.g. `G-XXXXXXXXXX`. Read at runtime, so set it in the server's `.env` (production only), not at build time. |
 
 ### Sentry *(optional)*
 
@@ -244,9 +242,6 @@ patrik-warranty-form/
 ├── config/
 │   └── notifications.json         Admin recipient list (edit + redeploy to change)
 ├── cors.json                      S3 CORS rule — apply once with aws s3api
-├── scripts/
-│   ├── build.bat                  Docker build helper — reads .env, passes NEXT_PUBLIC_ build args
-│   └── push.bat                   Docker push helper
 └── .env.local.example             Environment variable template
 ```
 

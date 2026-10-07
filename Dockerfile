@@ -14,8 +14,8 @@ COPY . .
 ARG NEXT_PUBLIC_MAPBOX_API_KEY
 ENV NEXT_PUBLIC_MAPBOX_API_KEY=$NEXT_PUBLIC_MAPBOX_API_KEY
 
-ARG NEXT_PUBLIC_GA_MEASUREMENT_ID
-ENV NEXT_PUBLIC_GA_MEASUREMENT_ID=$NEXT_PUBLIC_GA_MEASUREMENT_ID
+# GA is not baked in: GA_MEASUREMENT_ID is read at runtime (src/components/GoogleAnalytics.tsx),
+# so the same image runs on dev and production.
 
 RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 

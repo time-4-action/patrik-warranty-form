@@ -1,18 +1,37 @@
 # Deployment
 
-`.github/workflows/deploy.yml` runs `check` (lint + Docker build) on every pull request and push.
-A green check on `dev` or `main` builds the image, pushes it to GHCR and rolls that branch's
-server onto that exact commit over SSH. If the container is not healthy on that commit within
-60 s, it rolls back to the image that was running before. `verify` then checks the public URL.
-The servers only pull images; they never build.
+`.github/workflows/deploy.yml` builds the image **once** and promotes that same image:
 
-| Branch | Environment | Image tags | Server dir | Health port | Public URL |
+1. **Pull request** — `check`: `npm run lint` + a Docker build that is not pushed.
+2. **Push to `dev`** — `image` builds `ghcr.io/time-4-action/patrik-warranty-form:<sha>` (the
+   only build), `deploy` rolls the dev VM onto it **by digest**, `verify` requires the public
+   `/api/health` to report `status: ok` and `version: <sha>`. Only then is the image tagged
+   `:<sha>-verified` and `:dev`.
+3. **Push to `main`** (the `dev` → `main` merge) — **no build**. `image` takes main's git tree,
+   finds the dev commit with the identical tree and a `:<sha>-verified` image, and production
+   gets that exact digest. After `verify` it is tagged `:latest`. If main's code never went
+   through dev (e.g. a direct push), there is no verified image and the run fails before
+   touching production.
+
+Both deploys roll back to the previously running image unless the container comes up healthy on
+`127.0.0.1:<port>/api/health` and reports `APP_VERSION` = the image's source commit. The servers
+only pull; they never build.
+
+| Branch | Environment | Image | Server dir | Health port | Public URL |
 |---|---|---|---|---|---|
-| `dev` | `development` | `:dev-<sha>`, `:dev` | `/data/stack/apps/patrik-international/warranty` (dev VM) | `127.0.0.1:13011` | https://warranty.dev.patrik-international.com |
-| `main` | `production` | `:<sha>`, `:latest` | `/data/stack/apps/patrik-international/warranty` (prod VM) | `127.0.0.1:4000` | https://patrik-international.com |
+| `dev` | `development` | built: `:<sha>` → `:<sha>-verified`, `:dev` | `/data/stack/apps/patrik-international/warranty` (dev VM) | `127.0.0.1:13011` | https://warranty.dev.patrik-international.com |
+| `main` | `production` | promoted digest → `:latest` | `/data/stack/apps/patrik-international/warranty` (prod VM) | `127.0.0.1:4000` | https://patrik-international.com |
+
+The image is environment-neutral. `NEXT_PUBLIC_MAPBOX_API_KEY` (repository variable) is the only
+build-time value and is the same everywhere; anything that differs per environment — secrets,
+`GA_MEASUREMENT_ID`, `MAIL_REDIRECT_TO`, … — lives in the server's `.env` and is read at runtime.
+Don't add environment-specific `NEXT_PUBLIC_*` build args: that breaks build-once.
+
+`/api/health` reports `version` (the commit the running image was built from), so
+`curl https://patrik-international.com/api/health` tells you what production runs.
 
 To roll production back by hand, on the server:
-`export APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form:<sha> && docker compose up -d`
+`export APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form:<sha>-verified && docker compose up -d`
 (`docker login ghcr.io` first if the package is private), or re-run that commit's workflow.
 
 ## Production (setup, once)
@@ -23,8 +42,8 @@ GitHub:
   `PROD_DEPLOY_FINGERPRINT` with this repository (the same ones t4a-admin uses, if the warranty
   form runs on that VM).
 - Create the `production` environment and restrict it to the `main` branch.
-- Repository variable `NEXT_PUBLIC_GA_MEASUREMENT_ID` (production only; dev builds without GA).
-  Optional: `PRODUCTION_URL`.
+- Optional: required reviewer on the `production` environment (deploys wait for an approval),
+  repository variable `PRODUCTION_URL`.
 
 Server, in `/data/stack/apps/patrik-international/warranty` (owned by `deploy`, which must be in
 the `docker` group):
@@ -32,10 +51,8 @@ the `docker` group):
 - `docker-compose.yml` = `deploy/docker-compose.yml`. Same container name, port (4000) and
   `.env` as the hand-deployed setup, so nginx needs no change. A copy with a fixed `image:` tag
   ignores `APP_IMAGE`, and every deploy would fail its `APP_VERSION` check and roll back.
-- `.env`: the existing production secrets, unchanged. Never set `MAIL_REDIRECT_TO`,
+- `.env`: the production secrets, plus `GA_MEASUREMENT_ID` (runtime since build-once). Never set `MAIL_REDIRECT_TO`,
   `S3_KEY_PREFIX` or `SEED_MOCK_DATA` here.
-
-`scripts/build.bat` / `push.bat` (Docker Hub) are no longer used by production.
 
 ## Dev environment (setup, once)
 

@@ -1,6 +1,6 @@
 # Dev compose for /data/stack/apps/patrik-international/warranty on the DEV VM (save it there as
 # docker-compose.yml, next to .env). CI exports
-# APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form:dev-<sha>; without it this runs :dev.
+# APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form@sha256:<digest>; without it this runs :dev.
 # Traefik on the dev VM routes warranty.dev.patrik-international.com here, using its
 # *.dev.patrik-international.com wildcard cert (docs/deployment.md).
 # Fixed project name: container/volume names don't depend on the directory name.
