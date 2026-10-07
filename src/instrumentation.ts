@@ -8,6 +8,14 @@ export async function register() {
     // the admin dashboard. config/notifications.json is only a fallback seed,
     // so an empty list is no longer a boot-time error.
     await import("../sentry.server.config");
+    // Dev only (set in deploy/docker-compose.dev.yml); no-op unless the
+    // warranty collection is empty. A failed seed must not stop the server.
+    if (process.env.SEED_MOCK_DATA === "true") {
+      const { seedMockDataIfEmpty } = await import("./lib/dev-seed");
+      await seedMockDataIfEmpty().catch((err) =>
+        console.error("[dev-seed] failed", err),
+      );
+    }
   }
   if (process.env.NEXT_RUNTIME === "edge") {
     await import("../sentry.edge.config");

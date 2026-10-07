@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { InfoTooltip } from "./InfoTooltip";
 
@@ -38,24 +38,25 @@ export function UploadCard({
   maxSizeMB?: number;
   info?: string;
 }) {
-  const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const preview = useMemo(
+    () => (value?.type.startsWith("image/") ? URL.createObjectURL(value) : null),
+    [value],
+  );
+
+  // Revoke the previous object URL once the file changes. Not done in an
+  // effect cleanup: Strict Mode runs cleanups on its simulated remount, which
+  // would revoke the URL that is still being shown.
+  const lastPreview = useRef<string | null>(null);
   useEffect(() => {
-    if (!value) {
-      setPreview(null);
-      return;
-    }
-    if (value.type.startsWith("image/")) {
-      const url = URL.createObjectURL(value);
-      setPreview(url);
-      return () => URL.revokeObjectURL(url);
-    }
-    setPreview(null);
-  }, [value]);
+    const prev = lastPreview.current;
+    if (prev && prev !== preview) URL.revokeObjectURL(prev);
+    lastPreview.current = preview;
+  }, [preview]);
 
   const accept_ = accept ?? "*/*";
 

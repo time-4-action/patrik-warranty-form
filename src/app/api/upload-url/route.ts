@@ -6,7 +6,7 @@ import {
   UPLOAD_LIMIT,
   WINDOW_MS,
 } from "@/lib/rate-limit";
-import { s3, S3_BUCKET, S3_PUBLIC_BASE } from "@/lib/s3";
+import { s3, S3_BUCKET, S3_KEY_PREFIX, S3_PUBLIC_BASE } from "@/lib/s3";
 
 export const runtime = "nodejs";
 
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   }
 
   const ext = filename.split(".").pop() ?? "";
-  const key = `uploads/warranty/${submissionId}/${slot}.${ext}`;
+  const key = `${S3_KEY_PREFIX}/${submissionId}/${slot}.${ext}`;
 
   const command = new PutObjectCommand({
     Bucket: S3_BUCKET,
