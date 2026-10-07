@@ -1,7 +1,7 @@
 # Dev compose for /data/stack/apps/time-4-action/warranty-form on the DEV VM (save it there as
 # docker-compose.yml, next to .env). CI exports
 # APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form:dev-<sha>; without it this runs :dev.
-# Traefik on the dev VM routes dev.www.patrik-international.com here. That name is outside the
+# Traefik on the dev VM routes warranty.dev.patrik-international.com here. That name is outside the
 # *.dev.time-4-action.com wildcard cert, so it needs DNS + its own cert (docs/deployment.md).
 services:
   patrik-warranty-form:
@@ -28,7 +28,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=web
-      - traefik.http.routers.warranty.rule=Host(`dev.www.patrik-international.com`)
+      - traefik.http.routers.warranty.rule=Host(`warranty.dev.patrik-international.com`)
       - traefik.http.services.warranty.loadbalancer.server.port=3000
     restart: unless-stopped
 

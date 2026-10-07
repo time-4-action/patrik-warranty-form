@@ -3,7 +3,7 @@
 # Checks every pull request and every push. A green check on `dev` builds the image, pushes it
 # to GHCR as :dev-<sha> + :dev and rolls the dev VM onto that exact SHA over SSH, rolling back
 # to the previous image if it does not come up healthy on that commit. `verify` then checks the
-# public URL (dev.www.patrik-international.com).
+# public URL (warranty.dev.patrik-international.com).
 #
 # Production (main) is not deployed from here yet; it still goes out by hand.
 name: ci
@@ -30,7 +30,7 @@ env:
   # Loopback port the dev compose publishes, for the health check on the VM. The dev VM hosts
   # several apps, so each gets its own (see deploy/docker-compose.dev.yml).
   HOST_PORT: "13011"
-  PUBLIC_URL: ${{ vars.DEV_URL || 'https://dev.www.patrik-international.com' }}
+  PUBLIC_URL: ${{ vars.DEV_URL || 'https://warranty.dev.patrik-international.com' }}
 
 jobs:
   check:
