@@ -173,10 +173,23 @@ jobs:
         run: |
           [ -n "$HOST" ] || { echo "::error::deploy host secret for ${{ github.ref_name }} is empty or not shared with this repository"; exit 1; }
 
+      # Dev only: the dev VM's docker-compose.yml comes from the repo on every deploy, so it can
+      # never lag behind the image (a new service or env var). Production's compose stays a
+      # hand-copied file (docs/deployment.md).
+      - uses: actions/checkout@v4
+        if: github.ref_name != 'main'
+        with:
+          sparse-checkout: deploy/docker-compose.dev.yml
+          sparse-checkout-cone-mode: false
+      - name: Pack the dev compose file
+        if: github.ref_name != 'main'
+        run: echo "COMPOSE_B64=$(base64 -w0 deploy/docker-compose.dev.yml)" >> "$GITHUB_ENV"
+
       - uses: appleboy/ssh-action@v1
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMPOSE_B64: ${{ env.COMPOSE_B64 }}
         with:
           host: ${{ github.ref_name == 'main' && secrets.PROD_DEPLOY_HOST || secrets.DEV_DEPLOY_HOST }}
           # The SSH login on the VM; override with the DEPLOY_USER variable.
@@ -185,7 +198,7 @@ jobs:
           fingerprint: ${{ github.ref_name == 'main' && secrets.PROD_DEPLOY_FINGERPRINT || secrets.DEV_DEPLOY_FINGERPRINT }}
           timeout: 30s
           command_timeout: 15m
-          envs: GHCR_USER,GHCR_TOKEN
+          envs: GHCR_USER,GHCR_TOKEN,COMPOSE_B64
           script: |
             set -u
             # DEPLOY_DIR: an environment variable of the `production` / `development` environment
@@ -205,7 +218,21 @@ jobs:
             echo "running: ${PREV:-nothing}"
             echo "deploying: $NEW (commit $VERSION)"
 
-            # /api/health pings Mongo and SMTP, so a broken .env fails here too.
+            # Dev: install the repo's compose file; the old one comes back on rollback.
+            COMPOSE_CHANGED=""
+            if [ -n "${COMPOSE_B64:-}" ]; then
+              echo "$COMPOSE_B64" | base64 -d > docker-compose.yml.new || exit 1
+              if cmp -s docker-compose.yml.new docker-compose.yml; then
+                rm -f docker-compose.yml.new
+              else
+                cp docker-compose.yml docker-compose.yml.prev || exit 1
+                mv docker-compose.yml.new docker-compose.yml || exit 1
+                COMPOSE_CHANGED=1
+                echo "docker-compose.yml updated from the repo (old one in docker-compose.yml.prev)"
+              fi
+            fi
+
+            # /api/health pings Postgres and SMTP, so a broken .env fails here too.
             healthy() {
               for i in $(seq 1 30); do
                 curl -fsS http://127.0.0.1:${{ env.HOST_PORT }}/api/health >/dev/null && return 0
@@ -235,7 +262,7 @@ jobs:
               echo "pull failed, retrying"; sleep 10
             done
 
-            # On dev, `up` on the app also starts the Mongo it depends on.
+            # On dev, `up` on the app also starts the Postgres it depends on.
             if docker compose up -d --remove-orphans $SVC && healthy && on_commit; then
               echo "healthy on $NEW"
               docker image prune -f >/dev/null 2>&1 || true
@@ -251,6 +278,10 @@ jobs:
             fi
 
             echo "rolling back to $PREV"
+            if [ -n "$COMPOSE_CHANGED" ]; then
+              mv docker-compose.yml.prev docker-compose.yml
+              echo "restored the previous docker-compose.yml"
+            fi
             export APP_IMAGE=$PREV
             if docker compose up -d $SVC && healthy; then
               echo "rolled back to $PREV"

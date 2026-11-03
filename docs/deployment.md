@@ -108,10 +108,9 @@ copies claims, notes, the audit log and the email settings from MongoDB in one t
 container before the new one starts, and the new one copies before it serves, so no claim lands
 in MongoDB after the copy.
 
-Dev first. On the dev VM, copy `deploy/docker-compose.dev.yml` to
-`/data/stack/apps/patrik-international/warranty/docker-compose.yml` **before** the change reaches
-`dev`, or the dev deploy fails its health check (no `DATABASE_URL`) and rolls back. The old
-`mongo-data` volume can go afterwards (`docker volume rm patrik-warranty-dev_mongo-data`).
+Dev needs nothing by hand: the dev deploy installs the new `deploy/docker-compose.dev.yml` (with
+its own Postgres) itself. The old `mongo-data` volume stays on the dev VM until someone removes
+it (`docker volume rm patrik-warranty-dev_mongo-data`).
 
 Production, before promoting `dev` to `main`:
 
@@ -179,7 +178,10 @@ In `/data/stack/apps/patrik-international/warranty`:
   working SMTP credentials and `MAIL_REDIRECT_TO` set to your own inbox. Never copy the
   production `.env`.
 
-The deploy only swaps images: copy changes to these files to the server by hand.
+Every dev deploy installs `deploy/docker-compose.dev.yml` from the commit it deploys as the
+server's `docker-compose.yml` (the old one is kept as `docker-compose.yml.prev` and comes back if
+the deploy rolls back). Change the dev compose in the repo, never on the server. `.env` stays a
+hand-managed file.
 
 ### Dev Postgres
 
