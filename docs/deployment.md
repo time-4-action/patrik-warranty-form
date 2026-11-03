@@ -84,7 +84,7 @@ Server, in `/srv/patrik-warranty` (owned by `deploy`):
   `sh /srv/mongo/new-app-mongo.sh patrik-warranty patrik` printed.
 - In t4a-infra: the `patrik-international.com` Cloudflare origin certificate in `/srv/edge/certs/`
   and `/srv/edge/dynamic/patrik-assets.yml` (the old upload links and `assets.patrik-international.com`
-  to the `patrik-assets` bucket).
+  to the `t4a` bucket in hel1; before November 2026 `patrik-assets` in fsn1).
 
 Cutover, with no claim lost (a few minutes of a "back soon" page):
 
