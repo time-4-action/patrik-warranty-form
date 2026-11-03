@@ -34,7 +34,8 @@ permissions:
 env:
   IMAGE: ghcr.io/time-4-action/patrik-warranty-form
   # Host port the server's compose publishes, for the health check on the VM
-  # (deploy/docker-compose.yml: 4000, behind nginx; deploy/docker-compose.dev.yml: 13011).
+  # (deploy/docker-compose.yml on t2 and deploy/docker-compose.t4a.yml on t4a: 4000;
+  # deploy/docker-compose.dev.yml: 13011).
   HOST_PORT: ${{ github.ref_name == 'main' && '4000' || '13011' }}
   # Overridable with the PRODUCTION_URL / DEV_URL repository variables.
   PUBLIC_URL: ${{ github.ref_name == 'main' && (vars.PRODUCTION_URL || 'https://patrik-international.com') || (vars.DEV_URL || 'https://warranty.dev.patrik-international.com') }}
@@ -187,7 +188,9 @@ jobs:
           envs: GHCR_USER,GHCR_TOKEN
           script: |
             set -u
-            cd /data/stack/apps/patrik-international/warranty || exit 1
+            # DEPLOY_DIR: an environment variable of the `production` / `development` environment
+            # (production on t4a: /srv/patrik-warranty, docs/deployment.md).
+            cd ${{ vars.DEPLOY_DIR || '/data/stack/apps/patrik-international/warranty' }} || exit 1
             # Pinned by digest: exactly the image the `image` job produced, never a moved tag.
             NEW=${{ needs.image.outputs.ref }}
             VERSION=${{ needs.image.outputs.version }}

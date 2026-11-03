@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Orbitron, Montserrat } from "next/font/google";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { MaintenanceBanner } from "@/components/MaintenanceBanner";
 import "./globals.css";
 
 const orbitron = Orbitron({
@@ -32,6 +33,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <GoogleAnalytics />
+        <MaintenanceBanner />
         {children}
       </body>
     </html>
