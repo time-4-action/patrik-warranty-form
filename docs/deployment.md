@@ -54,6 +54,49 @@ the `docker` group):
 - `.env`: the production secrets, plus `GA_MEASUREMENT_ID` (runtime since build-once). Never set `MAIL_REDIRECT_TO`,
   `S3_KEY_PREFIX` or `SEED_MOCK_DATA` here.
 
+## Production on t4a (moving from t2)
+
+Production moves from t2 (`/data/stack/apps/patrik-international/warranty`, nginx) to t4a
+(Hetzner, `/srv/patrik-warranty`, Traefik; see `servers/t4a/README.md` in
+[t4a-infra](https://github.com/time-4-action/t4a-infra)). Mongo moves with it: the `patrik`
+database is in t4a's Mongo, reached as `mongo:27017` with this app's own user.
+
+The workflow is the same for both servers. What picks t4a is set on the `production` environment
+only, so `t4a-admin` and the other repos sharing the `PROD_DEPLOY_*` organization secrets are not
+affected (environment secrets win over organization secrets of the same name):
+
+| On the `production` environment | Value |
+|---|---|
+| secret `PROD_DEPLOY_HOST` | `77.42.42.60` |
+| secret `PROD_DEPLOY_SSH_KEY` | the private key `github-actions@patrik-warranty-form` (its public half is in `/home/deploy/.ssh/authorized_keys` on t4a) |
+| secret `PROD_DEPLOY_FINGERPRINT` | t4a's host key, `SHA256:S+imWrvzhXtRs0U3VJwAondh5XNv7u8Gw6Sxwcv7HtM` |
+| variable `DEPLOY_DIR` | `/srv/patrik-warranty` |
+
+Set them at the cutover, not before: from then on every production deploy goes to t4a, and the
+`verify` job checks the public URL, so DNS must point at t4a too. To go back to t2, delete the
+four; the organization secrets and the default directory apply again.
+
+Server, in `/srv/patrik-warranty` (owned by `deploy`):
+
+- `docker-compose.yml` = `deploy/docker-compose.t4a.yml`: Traefik labels for `patrik-international.com`
+  and `www`, networks `edge` and `mongo`, loopback port `4000` for CI's health check.
+- `.env`: the production `.env` from t2 with `MONGODB_URI` replaced by the one
+  `sh /srv/mongo/new-app-mongo.sh patrik-warranty patrik` printed.
+- In t4a-infra: the `patrik-international.com` Cloudflare origin certificate in `/srv/edge/certs/`
+  and `/srv/edge/dynamic/patrik-assets.yml` (the old upload links and `assets.patrik-international.com`
+  to the `patrik-assets` bucket).
+
+Cutover, with no claim lost (a few minutes of a "back soon" page):
+
+1. `/maintenance down patrik-international.com www.patrik-international.com assets.patrik-international.com Moving to a new server`.
+   t4a's Traefik answers with the down page; t2 still serves until DNS moves.
+2. Cloudflare: point the A records of `patrik-international.com`, `www` and `assets` at `77.42.42.60` (proxied).
+   From then on no request reaches t2.
+3. Copy the `patrik` database from t2 once more (`--drop`; `servers/t4a/README.md`, "MongoDB").
+4. Set the four values above on the `production` environment.
+5. `/maintenance end`, then check https://patrik-international.com/api/health reports `status: ok`.
+6. Stop the container on t2 (keep its folder and `.env` for a few weeks).
+
 ## Dev environment (setup, once)
 
 ### GitHub
