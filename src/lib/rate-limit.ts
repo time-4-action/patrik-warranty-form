@@ -1,93 +1,57 @@
-import { getMongoDb } from "./mongo";
+import { getSql } from "./db";
 
-export const RATE_LIMIT_COLLECTION = "rate_limits";
 export const SUBMISSION_LIMIT = 5;
 // 4 slots × SUBMISSION_LIMIT submissions, plus headroom for retries / reloads.
 export const UPLOAD_LIMIT = SUBMISSION_LIMIT * 4 * 2;
 export const WINDOW_MS = 60 * 60 * 1000;
 
-type RateLimitDoc = {
-  _id: string;
-  attempts: Date[];
-  updatedAt: Date;
-};
-
 export type RateLimitResult =
   | { allowed: true; remaining: number; limit: number }
   | { allowed: false; retryAfterSeconds: number; limit: number };
 
-let indexesEnsured = false;
-
-async function ensureIndexes(): Promise<void> {
-  if (indexesEnsured) return;
-  const db = await getMongoDb();
-  // TTL on updatedAt so idle IPs drop out of the collection after the window passes.
-  await db.collection(RATE_LIMIT_COLLECTION).createIndex(
-    { updatedAt: 1 },
-    { expireAfterSeconds: Math.ceil(WINDOW_MS / 1000) * 2 },
-  );
-  indexesEnsured = true;
-}
+// Old rows are deleted per key on every call; this sweeps keys that went quiet,
+// on roughly 1 call in 50.
+const SWEEP_PROBABILITY = 0.02;
 
 /**
  * Sliding-window rate limit: at most `limit` attempts per `windowMs` per key.
- * Atomically prunes stale timestamps and (if under the limit) records the new attempt.
+ * One row per attempt in `rate_limit_attempt`. A transaction-scoped advisory
+ * lock on the key makes count-then-insert atomic across requests.
  */
 export async function consumeSubmissionAttempt(
   key: string,
   limit: number = SUBMISSION_LIMIT,
   windowMs: number = WINDOW_MS,
 ): Promise<RateLimitResult> {
-  await ensureIndexes();
-  const db = await getMongoDb();
-  const coll = db.collection<RateLimitDoc>(RATE_LIMIT_COLLECTION);
-
+  const sql = getSql();
   const now = new Date();
   const windowStart = new Date(now.getTime() - windowMs);
 
-  const result = await coll.findOneAndUpdate(
-    { _id: key },
-    [
-      {
-        $set: {
-          attempts: {
-            $filter: {
-              input: { $ifNull: ["$attempts", []] },
-              cond: { $gte: ["$$this", windowStart] },
-            },
-          },
-        },
-      },
-      {
-        $set: {
-          attempts: {
-            $cond: [
-              { $lt: [{ $size: "$attempts" }, limit] },
-              { $concatArrays: ["$attempts", [now]] },
-              "$attempts",
-            ],
-          },
-          updatedAt: now,
-        },
-      },
-    ],
-    { upsert: true, returnDocument: "after" },
-  );
+  const result = await sql.begin(async (tx): Promise<RateLimitResult> => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext(${"rl:" + key}))`;
+    await tx`DELETE FROM rate_limit_attempt WHERE key = ${key} AND at < ${windowStart}`;
+    const attempts = await tx<{ at: Date }[]>`
+      SELECT at FROM rate_limit_attempt WHERE key = ${key} ORDER BY at`;
+    if (attempts.length >= limit) {
+      const oldest = attempts[0].at;
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((oldest.getTime() + windowMs - now.getTime()) / 1000),
+      );
+      return { allowed: false, retryAfterSeconds, limit };
+    }
+    await tx`INSERT INTO rate_limit_attempt (key, at) VALUES (${key}, ${now})`;
+    return { allowed: true, remaining: limit - attempts.length - 1, limit };
+  });
 
-  const attempts: Date[] = result?.attempts ?? [];
-  const accepted =
-    attempts.length > 0 &&
-    attempts[attempts.length - 1].getTime() === now.getTime();
-
-  if (!accepted) {
-    const oldest = attempts[0];
-    const retryAfterSeconds = oldest
-      ? Math.max(1, Math.ceil((oldest.getTime() + windowMs - now.getTime()) / 1000))
-      : Math.ceil(windowMs / 1000);
-    return { allowed: false, retryAfterSeconds, limit };
+  if (Math.random() < SWEEP_PROBABILITY) {
+    const cutoff = new Date(now.getTime() - 2 * windowMs);
+    sql`DELETE FROM rate_limit_attempt WHERE at < ${cutoff}`.catch((err) =>
+      console.error("rate limit sweep failed", err),
+    );
   }
 
-  return { allowed: true, remaining: limit - attempts.length, limit };
+  return result;
 }
 
 /**

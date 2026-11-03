@@ -97,6 +97,48 @@ Cutover, with no claim lost (a few minutes of a "back soon" page):
 5. `/maintenance end`, then check https://patrik-international.com/api/health reports `status: ok`.
 6. Stop the container on t2 (keep its folder and `.env` for a few weeks).
 
+## MongoDB to Postgres (on t4a)
+
+Do this after the move to t4a is done and green; images with the Postgres change cannot run on
+t2. The app stores everything in t4a's shared Postgres 18 (one database and role per app, nightly
+and point-in-time backups; `servers/t4a/README.md` in t4a-infra, "Postgres"). It creates its
+tables at boot, and while `MIGRATE_FROM_MONGODB_URI` is set and the `warranty` table is empty it
+copies claims, notes, the audit log and the email settings from MongoDB in one transaction
+(`src/lib/migrate-from-mongo.ts`). No maintenance page is needed: the deploy stops the old
+container before the new one starts, and the new one copies before it serves, so no claim lands
+in MongoDB after the copy.
+
+Dev first. On the dev VM, copy `deploy/docker-compose.dev.yml` to
+`/data/stack/apps/patrik-international/warranty/docker-compose.yml` **before** the change reaches
+`dev`, or the dev deploy fails its health check (no `DATABASE_URL`) and rolls back. The old
+`mongo-data` volume can go afterwards (`docker volume rm patrik-warranty-dev_mongo-data`).
+
+Production, before promoting `dev` to `main`:
+
+1. `ssh t4a sh /srv/postgres/new-app-db.sh patrik-warranty` prints a `DATABASE_URL`.
+2. In `/srv/patrik-warranty/.env`, add that `DATABASE_URL` and
+   `MIGRATE_FROM_MONGODB_URI=<the value of MONGODB_URI>`. Keep `MONGODB_URI` for now: the running
+   image still needs it if it restarts, and it is the way back.
+3. Copy `deploy/docker-compose.t4a.yml` to `/srv/patrik-warranty/docker-compose.yml` (it adds the
+   `db` network). CI picks it up on the next deploy.
+
+Cutover:
+
+4. Merge the `dev` → `main` PR. CI deploys as usual and checks `/api/health`, whose checks now
+   list `postgres` instead of `mongo`.
+5. Check the copy: `docker compose logs patrik-warranty-form | grep mongo-copy` shows the MongoDB
+   and Postgres counts, which must match. Open a few claims in t4a-admin.
+6. Remove `MIGRATE_FROM_MONGODB_URI` and `MONGODB_URI` from `.env`, and the `mongo` network from
+   the server's `docker-compose.yml`, then `docker compose up -d`. While the variable stays, every
+   boot logs `[mongo-copy] skipped`; it never copies again once Postgres holds claims.
+7. Leave the `patrik` database in t4a's MongoDB untouched for a few weeks, then drop it.
+   Afterwards, remove `src/lib/migrate-from-mongo.ts` and the `mongodb` dependency.
+
+Way back (before step 6): deploy the previous image
+(`APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form:<previous sha>-verified docker compose up -d`)
+and it runs against MongoDB again. Claims submitted on Postgres in between are then only in
+Postgres and the Google Sheet.
+
 ## Dev environment (setup, once)
 
 ### GitHub
@@ -139,12 +181,12 @@ In `/data/stack/apps/patrik-international/warranty`:
 
 The deploy only swaps images: copy changes to these files to the server by hand.
 
-### Dev Mongo
+### Dev Postgres
 
-A `mongo:7.0` container next to the app, not reachable from outside. The compose file sets
-`SEED_MOCK_DATA=true`, so whenever the app boots against an empty `warranty` collection it inserts
-80 mock claims (`src/lib/dev-seed.ts`, run from `instrumentation.ts`). Nothing to copy or run by
-hand. To reset to fresh mock data:
+A `postgres:18-alpine` container next to the app, not reachable from outside. The app creates its
+tables at boot (`src/lib/db.ts`). The compose file sets `SEED_MOCK_DATA=true`, so whenever the app
+boots against an empty `warranty` table it inserts 80 mock claims (`src/lib/dev-seed.ts`, run from
+`instrumentation.ts`). Nothing to copy or run by hand. To reset to fresh mock data:
 
 ```sh
 docker compose down -v && docker compose up -d

@@ -1,5 +1,5 @@
 import { checkInternalAdmin } from "@/lib/admin-auth";
-import { addClaimNote, findWarrantyBySubmissionId } from "@/lib/warranty-mongo";
+import { addClaimNote, findWarrantyBySubmissionId } from "@/lib/warranty-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

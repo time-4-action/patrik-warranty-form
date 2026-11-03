@@ -1,3 +1,5 @@
+# Images from the Postgres change on need DATABASE_URL and a Postgres, which t2 does not have, so
+# they only run on t4a (deploy/docker-compose.t4a.yml). Promote that change after the move.
 # Production compose for /data/stack/apps/patrik-international/warranty on the production VM
 # (save it there as docker-compose.yml, next to .env). CI exports
 # APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form@sha256:<digest> (the image verified on dev);

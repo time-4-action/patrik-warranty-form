@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { findWarrantyBySubmissionId } from "@/lib/warranty-mongo";
+import { findWarrantyBySubmissionId } from "@/lib/warranty-store";
 import { WARRANTY_STATUS_LABELS } from "@/types/warranty-settings";
 import { PrintButton } from "./_components/PrintButton";
 

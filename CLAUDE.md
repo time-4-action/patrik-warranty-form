@@ -11,8 +11,11 @@ Warranty registration form for Patrik windsurfing products. Built with Next.js 1
 - `src/app/warranty/_components/InfoTooltip.tsx` — small (i) icon + popover used by `Field` and `UploadCard` to explain a field. Shown when the user clicks the (i) button next to a field's label / upload card; closes on outside click or Esc. Wire by passing `info="…"` to a `Field` or `UploadCard` — leave it unset and no icon renders. Styles live in `globals.css` under `/* --- Info tooltip (i) --- */`.
 - `src/app/warranty/_components/RateLimitModal.tsx` — branded modal shown when `/api/warranty` or `/api/upload-url` return 429. Live-counts the retry time and explains why the limit exists.
 - `src/app/api/upload-url/route.ts` — POST endpoint that generates presigned S3 PUT URLs. Called once per file on submit. IP rate-limited via `consumeSubmissionAttempt`.
-- `src/app/api/warranty/route.ts` — POST endpoint that persists the warranty submission to Google Sheets + MongoDB. IP rate-limited via `consumeSubmissionAttempt`.
-- `src/lib/rate-limit.ts` — Mongo-backed sliding-window rate limiter. Exports `consumeSubmissionAttempt`, `getClientIp`, and the `SUBMISSION_LIMIT` / `UPLOAD_LIMIT` / `WINDOW_MS` constants.
+- `src/app/api/warranty/route.ts` — POST endpoint that persists the warranty submission to Google Sheets + Postgres. IP rate-limited via `consumeSubmissionAttempt`.
+- `src/lib/rate-limit.ts` — Postgres-backed sliding-window rate limiter (one row per attempt in `rate_limit_attempt`, advisory lock per key). Exports `consumeSubmissionAttempt`, `getClientIp`, and the `SUBMISSION_LIMIT` / `UPLOAD_LIMIT` / `WINDOW_MS` constants.
+- `src/lib/db.ts` — postgres.js pool (`getSql()`, `DATABASE_URL`) and the schema migrations, applied at boot by `migrate()` from `instrumentation.ts`. Append a new migration to `MIGRATIONS`; never edit one that shipped. Timestamps the API returns stay `text` in their original format so the JSON t4a-admin reads is unchanged.
+- `src/lib/warranty-store.ts` — claims and notes (`warranty`, `warranty_note`): insert, find, filtered list, workflow updates, notes, bulk import. Payload fields live in the `data` jsonb column.
+- `src/lib/migrate-from-mongo.ts` — one-off copy from MongoDB at boot while `MIGRATE_FROM_MONGODB_URI` is set. Remove it, the env var and the `mongodb` dependency once production has run on Postgres for a while.
 - `src/lib/s3.ts` — AWS SDK v3 S3 client configured for Hetzner Object Storage.
 - `src/lib/mail.ts` — server-only nodemailer transport (lazy-initialised from `SMTP_*` env vars). Exports `sendMail` and `verifyTransport`.
 - `src/lib/notifications-config.ts` — loads `config/notifications.json` and asserts `adminRecipients` is non-empty at boot.
@@ -42,7 +45,7 @@ The `submissionId` groups all 4 files for one warranty claim under the same path
 
 ## Abuse protection (rate limiting)
 
-`/api/warranty` and `/api/upload-url` are both gated by a Mongo-backed sliding-window rate limiter keyed on the caller's IP (`cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`). Keys are namespaced per endpoint (`warranty:<ip>`, `upload:<ip>`) so upload activity doesn't consume the submission budget and vice-versa.
+`/api/warranty` and `/api/upload-url` are both gated by a Postgres-backed sliding-window rate limiter keyed on the caller's IP (`cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`). Keys are namespaced per endpoint (`warranty:<ip>`, `upload:<ip>`) so upload activity doesn't consume the submission budget and vice-versa.
 
 Limits (see `src/lib/rate-limit.ts`):
 
@@ -51,7 +54,7 @@ Limits (see `src/lib/rate-limit.ts`):
 
 Both endpoints return `429 { error: "rate-limited", limit, retryAfterSeconds }` with a matching `Retry-After` header when blocked. The frontend maps 429 from either endpoint into `RateLimitModal`, which live-counts the retry time.
 
-A TTL index on `updatedAt` auto-expires idle IPs after `2 × WINDOW_MS`, so the `rate_limits` collection stays small without a cron job.
+Each call deletes that key's attempts older than the window, and about 1 call in 50 also deletes every attempt older than `2 × WINDOW_MS`, so `rate_limit_attempt` stays small without a cron job.
 
 ## Admin integration
 
@@ -65,9 +68,9 @@ a shared bearer token.
 - `src/types/warranty-settings.ts` — settings shape, status enum, field-key
   catalogues (`CUSTOMER_FIELD_KEYS`, `ADMIN_FIELD_KEYS`) + labels +
   `DEFAULT_SETTINGS`. Both this repo and the admin dashboard import the keys.
-- `src/lib/warranty-settings.ts` — Mongo-backed `getWarrantySettings()` /
-  `saveWarrantySettings()`, stored in `warranty_settings` collection under
-  `_id: "default"`. Missing fields fall back to `DEFAULT_SETTINGS`; empty
+- `src/lib/warranty-settings.ts` — Postgres-backed `getWarrantySettings()` /
+  `saveWarrantySettings()`, stored as JSON in the `warranty_settings` table under
+  `id = 'default'`. Missing fields fall back to `DEFAULT_SETTINGS`; empty
   `adminRecipients` falls back to `config/notifications.json` for first-run.
 - Status field — every doc gets `status: "new"` on insert (plus
   `statusUpdatedAt`). Admin can transition through `new → in_review → approved
@@ -92,7 +95,7 @@ Email builders (`buildUserConfirmation`, `buildAdminNotification`) now take a
 
 The boot-time `assertNotificationsConfig()` was removed from
 `instrumentation.ts` — recipients are no longer required at startup since they
-live in Mongo and can be edited live.
+live in Postgres and can be edited live.
 
 ## Email notifications
 
@@ -101,11 +104,11 @@ On successful submission, `/api/warranty` sends two transactional emails in para
 1. **Customer confirmation** → `payload.email`. Thank-you, short claim id, product + serial, submission time, link to `${BASE_URL}/warranty/<submissionId>`.
 2. **Admin notification** → everyone in `config/notifications.json → adminRecipients`, delivered via **BCC** so admins never see each other's addresses. `to` is set to `SMTP_FROM` (needed because some SMTP servers / spam filters reject mail with no visible `To:`). `replyTo` is set to the customer's email so hitting reply goes back to the customer.
 
-Failure handling is **fire-and-forget** — if SMTP is down or credentials are wrong, errors are logged via `console.error` + `Sentry.captureException`, and the endpoint still returns `{ ok: true, submissionId }`. The submission is already persisted in Mongo + Sheets; failing the request would produce duplicate submissions and an inconsistent state.
+Failure handling is **fire-and-forget** — if SMTP is down or credentials are wrong, errors are logged via `console.error` + `Sentry.captureException`, and the endpoint still returns `{ ok: true, submissionId }`. The submission is already persisted in Postgres + Sheets; failing the request would produce duplicate submissions and an inconsistent state.
 
 Transport setup lives in `src/lib/mail.ts` (lazy — first `sendMail`/`verifyTransport` call creates the transporter; `secure: true` is derived automatically when `SMTP_PORT === 465`). Templates are plain inline-styled HTML plus a plain-text fallback — no templating lib, no external images/fonts, safe across Gmail / Outlook / Apple Mail. User-supplied values are HTML-escaped via `src/lib/emails/_html.ts` before being interpolated.
 
-`/api/health` actively calls `verifyTransport()` (real SMTP `NOOP`), matching the Mongo ping style — not just env-var presence.
+`/api/health` actively calls `verifyTransport()` (real SMTP `NOOP`), matching the Postgres ping style — not just env-var presence.
 
 Env vars: `SMTP_HOST`, `SMTP_PORT` (465 = SSL, 587 = STARTTLS), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` (e.g. `"Patrik Warranty <noreply@patrik-windsurf.com>"`). All required at boot.
 
@@ -126,12 +129,12 @@ Workflow:
 
 `src/components/MaintenanceBanner.tsx` (in the root layout) shows the notices from maintenance.time-4-action.com (`banner.json?app=warranty`, polled every minute). Only maintenances that name `warranty` reach it, never the internal ones for every t4a app.
 
-Dev runs its own throwaway Mongo (`deploy/docker-compose.dev.yml`), which the app seeds with mock claims at boot (`src/lib/dev-seed.ts`, gated by `SEED_MOCK_DATA=true` + empty `warranty` collection). Dev uses a DEV Google Sheet, `S3_KEY_PREFIX=dev/uploads/warranty`, and `MAIL_REDIRECT_TO` (in `src/lib/mail.ts`) so every email goes to one inbox instead of customers/admins. Server setup: `docs/deployment.md`.
+Dev runs its own throwaway Postgres (`deploy/docker-compose.dev.yml`), which the app seeds with mock claims at boot (`src/lib/dev-seed.ts`, gated by `SEED_MOCK_DATA=true` + empty `warranty` collection). Dev uses a DEV Google Sheet, `S3_KEY_PREFIX=dev/uploads/warranty`, and `MAIL_REDIRECT_TO` (in `src/lib/mail.ts`) so every email goes to one inbox instead of customers/admins. Server setup: `docs/deployment.md`.
 
 ## Production infrastructure
 
 - **Boot-time env validation** — `src/instrumentation.ts` runs `assertServerEnv()` from `src/lib/env.ts` and `assertNotificationsConfig()` from `src/lib/notifications-config.ts` when the Node runtime starts. A missing required env var or an empty `adminRecipients` array throws and the server fails to start, instead of crashing on the first user request.
-- **`GET /api/health`** — pings Mongo, verifies the SMTP transport, asserts presence of Sheets env vars. Returns `200 { status: "ok", version, checks }` or `503 { status: "degraded", version, checks }`; `version` is the commit SHA the image was built from (`APP_VERSION`). Use it for uptime monitoring.
+- **`GET /api/health`** — pings Postgres, verifies the SMTP transport, asserts presence of Sheets env vars. Returns `200 { status: "ok", version, checks }` or `503 { status: "degraded", version, checks }`; `version` is the commit SHA the image was built from (`APP_VERSION`). Use it for uptime monitoring.
 - **Sentry** — `sentry.{client,server,edge}.config.ts` plus `instrumentation.ts → onRequestError`. All `init()` calls are gated on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` — leave them unset locally and Sentry stays inactive. `next.config.ts` is wrapped in `withSentryConfig` for source-map upload (needs `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` at build time only).
 - **Google Analytics 4** — `GA_MEASUREMENT_ID` is a runtime var in the server's `.env` (set in production only). Inactive if unset.
-- **Roadmap** — `docs/PRODUCTION.md` tracks deferred production items (CI, indexes, CSP, Mongo backup, etc.) with a one-line problem/fix/reason for each.
+- **Roadmap** — `docs/PRODUCTION.md` tracks deferred production items (CI, CORS, CSP, etc.) with a one-line problem/fix/reason for each.

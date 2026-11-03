@@ -11,7 +11,7 @@ Staff get an admin notification with full details and direct links to every uplo
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-7.0-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
 </div>
 
@@ -19,17 +19,17 @@ Staff get an admin notification with full details and direct links to every uplo
 
 ## Overview
 
-A production-grade warranty registration form built for Patrik International. The form collects customer and product details, accepts up to four proof photos (uploaded directly to object storage), and persists every submission to both MongoDB and a Google Sheet for easy staff review.
+A production-grade warranty registration form built for Patrik International. The form collects customer and product details, accepts up to four proof photos (uploaded directly to object storage), and persists every submission to both PostgreSQL and a Google Sheet for easy staff review.
 
 **Key capabilities:**
 
 - **Multi-step registration form** with address autocomplete (Mapbox) and four photo upload slots — invoice, serial number, full product shot, close-up
 - **Direct-to-S3 uploads** via presigned PUT URLs — file bytes never touch the Next.js server
-- **Dual persistence** — every submission is written to MongoDB and appended to a Google Sheet
+- **Dual persistence** — every submission is written to PostgreSQL and appended to a Google Sheet
 - **Transactional email** — customer confirmation + BCC'd admin notification sent in parallel on successful submit
-- **IP rate limiting** — MongoDB-backed sliding window with per-endpoint buckets; 429 surfaces a live-countdown modal in the UI
+- **IP rate limiting** — PostgreSQL-backed sliding window with per-endpoint buckets; 429 surfaces a live-countdown modal in the UI
 - **Boot-time env validation** — missing required vars crash the server at start, not on the first request
-- **Health endpoint** at `GET /api/health` — pings MongoDB, verifies SMTP, asserts Sheets config; returns `200 / 503`
+- **Health endpoint** at `GET /api/health` — pings PostgreSQL, verifies SMTP, asserts Sheets config; returns `200 / 503`
 - **Sentry** error tracking (client + server + edge); inactive until DSN env vars are set
 - **Google Analytics 4** — page view tracking across all routes + custom events for form interactions (start, validation errors, file uploads, successful submissions, rate limits)
 
@@ -43,13 +43,13 @@ A production-grade warranty registration form built for Patrik International. Th
      │                              │                                  │
      │── PUT <presignedUrl> ──────────────────────────────────▶  Hetzner S3
      │                              │                                  │
-     │── POST /api/warranty ──────▶ │── upsert ──────────────▶  MongoDB
+     │── POST /api/warranty ──────▶ │── insert ──────────────▶  PostgreSQL
      │                              │── append row ──────────▶  Google Sheets
      │                              │── send email ──────────▶  SMTP
      │◀─ { ok, submissionId } ──── │   ├── customer confirmation
      │                              │   └── admin notification (BCC)
      │                              │                                  │
-     │── GET /warranty/:id ───────▶ │── findOne({ submissionId }) ▶  MongoDB
+     │── GET /warranty/:id ───────▶ │── SELECT by submission_id ▶  PostgreSQL
      │◀─ receipt page ──────────── │                                  │
 ```
 
@@ -67,7 +67,7 @@ uploads/warranty/<submissionId>/closeup.<ext>
 ### Prerequisites
 
 - **Node.js** 20 LTS or newer
-- **MongoDB** 7.0+
+- **PostgreSQL** 18 (any recent version works; production runs 18)
 - A Hetzner (or AWS S3-compatible) object storage bucket
 - A Google Cloud service account with Sheets API access
 - An SMTP mailbox
@@ -137,11 +137,12 @@ Copy `.env.local.example` to `.env`. All variables marked **required** must be s
 
 > **Migrating to AWS S3?** Remove `S3_ENDPOINT` and drop `forcePathStyle: true` + `requestChecksumCalculation` from `src/lib/s3.ts`.
 
-### MongoDB
+### PostgreSQL
 
 | Variable | Required | Description |
 |---|:---:|---|
-| `MONGODB_URI` | ✓ | Full connection string |
+| `DATABASE_URL` | ✓ | `postgres://user:password@host:5432/db`. Tables are created at boot (`src/lib/db.ts`). |
+| `MIGRATE_FROM_MONGODB_URI` | | Only during the move from MongoDB: copy that database at boot (see `docs/deployment.md`). |
 
 ### Google Sheets
 
@@ -187,14 +188,14 @@ Leave all Sentry vars unset to disable error tracking.
 
 ## Rate Limiting
 
-`/api/warranty` and `/api/upload-url` are both gated by a MongoDB-backed sliding-window limiter keyed on caller IP (`cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`). Each endpoint has an independent bucket so upload traffic can't consume the submission budget.
+`/api/warranty` and `/api/upload-url` are both gated by a PostgreSQL-backed sliding-window limiter keyed on caller IP (`cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`). Each endpoint has an independent bucket so upload traffic can't consume the submission budget.
 
 | Endpoint | Default limit |
 |---|---|
 | `POST /api/warranty` | 5 submissions per rolling hour |
 | `POST /api/upload-url` | 40 presigned URLs per rolling hour |
 
-A 429 response includes `{ error: "rate-limited", limit, retryAfterSeconds }` plus a `Retry-After` header. The UI catches this from either endpoint and shows a live-countdown modal. A TTL index on `rate_limits.updatedAt` auto-prunes idle IPs.
+A 429 response includes `{ error: "rate-limited", limit, retryAfterSeconds }` plus a `Retry-After` header. The UI catches this from either endpoint and shows a live-countdown modal. Old attempts are deleted as the limiter runs, so `rate_limit_attempt` stays small.
 
 To tune limits, edit `SUBMISSION_LIMIT`, `UPLOAD_LIMIT`, and `WINDOW_MS` in `src/lib/rate-limit.ts`.
 
@@ -208,7 +209,7 @@ Returns `200 { status: "ok", checks }` or `503 { status: "degraded", checks }`.
 
 | Check | Method |
 |---|---|
-| MongoDB | `db.command({ ping: 1 })` |
+| PostgreSQL | `SELECT 1` |
 | SMTP | `verifyTransport()` (real SMTP `NOOP`) |
 | Google Sheets | asserts all four Sheets env vars are set |
 
@@ -221,7 +222,7 @@ patrik-warranty-form/
 │   │   ├── api/
 │   │   │   ├── health/            Health check endpoint
 │   │   │   ├── upload-url/        Presigned S3 URL generator
-│   │   │   └── warranty/          Submission handler (MongoDB + Sheets + email)
+│   │   │   └── warranty/          Submission handler (PostgreSQL + Sheets + email)
 │   │   ├── warranty/
 │   │   │   ├── _components/       WarrantyForm, UploadCard, RateLimitModal, …
 │   │   │   └── [submissionId]/    Receipt page
@@ -234,7 +235,7 @@ patrik-warranty-form/
 │   │   ├── env.ts                 Boot-time env validation
 │   │   ├── gtag.ts                gtagEvent() helper + window.gtag types
 │   │   ├── mail.ts                Nodemailer transport (lazy init)
-│   │   ├── mongo.ts               MongoDB client
+│   │   ├── db.ts                  Postgres client + schema migrations
 │   │   ├── notifications-config.ts  Admin recipients loader
 │   │   ├── rate-limit.ts          Sliding-window rate limiter
 │   │   └── s3.ts                  AWS SDK v3 S3 client (Hetzner config)

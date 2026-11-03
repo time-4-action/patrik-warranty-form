@@ -1,5 +1,5 @@
 import { checkInternalAdmin } from "@/lib/admin-auth";
-import { listWarrantySubmissions } from "@/lib/warranty-mongo";
+import { listWarrantySubmissions } from "@/lib/warranty-store";
 import {
   WARRANTY_STATUSES,
   type WarrantyStatus,
