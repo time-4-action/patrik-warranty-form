@@ -259,15 +259,17 @@ const str = (v: unknown): string | null => (typeof v === "string" && v ? v : nul
 /**
  * Inserts whole claim documents (the shape MongoDB stored) with their notes.
  * Existing claims and notes are left alone, so it is safe to run again.
- * Returns how many claims and notes were inserted.
+ * Returns how many claims and notes were inserted. Runs in `tx` when given,
+ * otherwise in its own transaction.
  */
 export async function importWarrantyDocuments(
   docs: Record<string, unknown>[],
+  tx?: postgres.TransactionSql,
 ): Promise<{ claims: number; notes: number }> {
-  const sql = getSql();
+  if (!tx) return getSql().begin((t) => importWarrantyDocuments(docs, t));
   let claims = 0;
   let notes = 0;
-  await sql.begin(async (tx) => {
+  {
     for (const doc of docs) {
       const payload: Record<string, unknown> = { ...doc };
       for (const k of NON_PAYLOAD_KEYS) delete payload[k];
@@ -295,6 +297,6 @@ export async function importWarrantyDocuments(
         notes += r.count;
       }
     }
-  });
+  }
   return { claims, notes };
 }

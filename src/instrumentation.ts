@@ -12,8 +12,8 @@ export async function register() {
     const { migrate } = await import("./lib/db");
     await migrate();
     // One-off copy from MongoDB, only while MIGRATE_FROM_MONGODB_URI is set
-    // (the production cutover). Failure is logged, not fatal; it can be re-run
-    // with a restart, since rows already copied are skipped.
+    // (the production cutover) and the warranty table is empty. All or nothing:
+    // a failure is logged, leaves Postgres empty, and the next boot retries.
     if (process.env.MIGRATE_FROM_MONGODB_URI) {
       const { copyFromMongo } = await import("./lib/migrate-from-mongo");
       await copyFromMongo(process.env.MIGRATE_FROM_MONGODB_URI).catch((err) =>

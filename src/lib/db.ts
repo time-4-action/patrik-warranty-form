@@ -12,6 +12,7 @@ export function getSql(): postgres.Sql {
     max: 5,
     idle_timeout: 60,
     connection: { TimeZone: "UTC" },
+    onnotice: () => {},
   });
   return globalForDb._sql;
 }

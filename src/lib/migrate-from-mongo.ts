@@ -2,10 +2,14 @@
 // One-off copy from MongoDB to Postgres
 // ============================================================================
 //
-// Runs at boot (instrumentation.ts) only when MIGRATE_FROM_MONGODB_URI is set.
-// Copies claims (with notes), the audit log and the email settings. Rows that
-// already exist in Postgres are left alone, so a restart is harmless. Rate-limit
-// buckets are not copied: they expire within the hour anyway.
+// Runs at boot (instrumentation.ts) only when MIGRATE_FROM_MONGODB_URI is set,
+// and only while the Postgres `warranty` table is empty: once claims exist,
+// Postgres is the source of truth and a restart must not copy anything back
+// (a note deleted in Postgres would otherwise reappear from MongoDB).
+//
+// Claims (with notes), the audit log and the email settings are copied in one
+// transaction, so a failure leaves Postgres empty and the next boot retries.
+// Rate-limit buckets are not copied: they expire within the hour anyway.
 //
 // Remove this file, the env var and the `mongodb` dependency once production
 // has run on Postgres for a while (docs/deployment.md, "MongoDB to Postgres").
@@ -15,46 +19,53 @@ import { getSql } from "./db";
 import { importWarrantyDocuments } from "./warranty-store";
 
 export async function copyFromMongo(uri: string): Promise<void> {
+  const sql = getSql();
+  const [{ n }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM warranty`;
+  if (n > 0) {
+    console.log(
+      `[mongo-copy] skipped: Postgres already holds ${n} claims. Remove MIGRATE_FROM_MONGODB_URI.`,
+    );
+    return;
+  }
+
   const { MongoClient } = await import("mongodb");
   const client = await new MongoClient(uri).connect();
   try {
     const db = client.db();
-    const sql = getSql();
-
     const claims = await db.collection("warranty").find().toArray();
-    const inserted = await importWarrantyDocuments(
-      claims as unknown as Record<string, unknown>[],
-    );
-
     const audit = await db.collection("warranty_audit").find().toArray();
-    let auditInserted = 0;
-    for (const a of audit) {
-      const created = a.createdAt instanceof Date ? a.createdAt : new Date(String(a.createdAt));
-      const r = await sql`
-        INSERT INTO warranty_audit
-          (id, entity_type, entity_id, actor_id, actor_name, actor_email, message, changes, created_at)
-        VALUES (${String(a._id)}, ${String(a.entityType)}, ${String(a.entityId)},
-          ${String(a.actorId ?? "")}, ${String(a.actorName ?? "")}, ${String(a.actorEmail ?? "")},
-          ${String(a.message ?? "")},
-          ${sql.json((Array.isArray(a.changes) ? a.changes : []) as postgres.JSONValue)}, ${created})
-        ON CONFLICT (id) DO NOTHING`;
-      auditInserted += r.count;
-    }
-
     const settings = await db
       .collection<{ _id: string }>("warranty_settings")
       .findOne({ _id: "default" });
-    let settingsInserted = 0;
-    if (settings) {
-      const { _id, ...data } = settings;
-      const r = await sql`
-        INSERT INTO warranty_settings (id, data) VALUES (${_id}, ${sql.json(data as postgres.JSONValue)})
-        ON CONFLICT (id) DO NOTHING`;
-      settingsInserted = r.count;
-    }
+
+    await sql.begin(async (tx) => {
+      await importWarrantyDocuments(claims as unknown as Record<string, unknown>[], tx);
+
+      for (const a of audit) {
+        const created = a.createdAt instanceof Date ? a.createdAt : new Date(String(a.createdAt));
+        await tx`
+          INSERT INTO warranty_audit
+            (id, entity_type, entity_id, actor_id, actor_name, actor_email, message, changes,
+             created_at)
+          VALUES (${String(a._id)}, ${String(a.entityType)}, ${String(a.entityId)},
+            ${String(a.actorId ?? "")}, ${String(a.actorName ?? "")},
+            ${String(a.actorEmail ?? "")}, ${String(a.message ?? "")},
+            ${tx.json((Array.isArray(a.changes) ? a.changes : []) as postgres.JSONValue)},
+            ${created})
+          ON CONFLICT (id) DO NOTHING`;
+      }
+
+      if (settings) {
+        const { _id, ...data } = settings;
+        await tx`
+          INSERT INTO warranty_settings (id, data)
+          VALUES (${_id}, ${tx.json(data as postgres.JSONValue)})
+          ON CONFLICT (id) DO NOTHING`;
+      }
+    });
 
     const mongoNotes = claims.reduce(
-      (n, c) => n + (Array.isArray(c.notes) ? c.notes.length : 0),
+      (sum, c) => sum + (Array.isArray(c.notes) ? c.notes.length : 0),
       0,
     );
     const [pg] = await sql<{ claims: number; notes: number; audit: number; settings: number }[]>`
@@ -63,10 +74,9 @@ export async function copyFromMongo(uri: string): Promise<void> {
              (SELECT count(*)::int FROM warranty_audit) AS audit,
              (SELECT count(*)::int FROM warranty_settings) AS settings`;
     console.log(
-      "[mongo-copy] mongo: " +
-        `claims=${claims.length} notes=${mongoNotes} audit=${audit.length} settings=${settings ? 1 : 0}` +
-        ` | inserted: claims=${inserted.claims} notes=${inserted.notes} audit=${auditInserted} settings=${settingsInserted}` +
-        ` | postgres now: claims=${pg.claims} notes=${pg.notes} audit=${pg.audit} settings=${pg.settings}`,
+      `[mongo-copy] mongo: claims=${claims.length} notes=${mongoNotes} audit=${audit.length} ` +
+        `settings=${settings ? 1 : 0} | postgres: claims=${pg.claims} notes=${pg.notes} ` +
+        `audit=${pg.audit} settings=${pg.settings}`,
     );
   } finally {
     await client.close();

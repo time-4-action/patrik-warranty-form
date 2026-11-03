@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
     })();
 
-    const [sheetResult, mongoResult] = await Promise.allSettled([
+    const [sheetResult, dbResult] = await Promise.allSettled([
       appendWarrantyRow(payload, submittedAt),
       insertWarrantyDoc(payload, submittedAt),
     ]);
@@ -60,17 +60,17 @@ export async function POST(request: Request) {
         err: sheetResult.reason,
       });
     }
-    if (mongoResult.status === "rejected") {
-      console.error("warranty mongo insert failed", {
+    if (dbResult.status === "rejected") {
+      console.error("warranty db insert failed", {
         submissionId: payload.submissionId,
         fileUrls: payload.fileUrls,
-        err: mongoResult.reason,
+        err: dbResult.reason,
       });
     }
 
     if (
       sheetResult.status === "rejected" ||
-      mongoResult.status === "rejected"
+      dbResult.status === "rejected"
     ) {
       return Response.json({ error: "Persistence failed" }, { status: 500 });
     }
