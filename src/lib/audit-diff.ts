@@ -19,7 +19,7 @@ import {
   type WorkflowFields,
 } from "@/types/warranty-settings";
 import type { AuditChange, AuditEnvelope } from "@/types/warranty-audit";
-import type { WorkflowPatch } from "./warranty-mongo";
+import type { WorkflowPatch } from "./warranty-store";
 
 // ----------------------------------------------------------------------------
 // Envelope extraction

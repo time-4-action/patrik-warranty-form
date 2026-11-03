@@ -31,7 +31,7 @@ export type AuditEnvelope = AuditActor & {
 
 // One stored history entry, as returned by the read endpoints.
 export type AuditEntry = {
-  id: string; // stringified ObjectId
+  id: string; // UUID (entries copied from MongoDB keep their ObjectId hex)
   entityType: AuditEntityType;
   entityId: string; // submissionId for claims; "settings" for the singleton
   actorId: string;

@@ -5,7 +5,7 @@ import { appendWarrantyRow } from "@/lib/google-sheets";
 import { sendMail } from "@/lib/mail";
 import { consumeSubmissionAttempt, getClientIp } from "@/lib/rate-limit";
 import { getWarrantySettings } from "@/lib/warranty-settings";
-import { insertWarrantyDoc } from "@/lib/warranty-mongo";
+import { insertWarrantyDoc } from "@/lib/warranty-store";
 import type { WarrantyPayload } from "@/types/warranty";
 
 export const runtime = "nodejs";

@@ -1,15 +1,14 @@
 import { verifyTransport } from "@/lib/mail";
-import { getMongoDb } from "@/lib/mongo";
+import { getSql } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type CheckResult = { ok: true } | { ok: false; error: string };
 
-async function checkMongo(): Promise<CheckResult> {
+async function checkPostgres(): Promise<CheckResult> {
   try {
-    const db = await getMongoDb();
-    await db.command({ ping: 1 });
+    await getSql()`SELECT 1`;
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -41,7 +40,7 @@ async function checkSmtp(): Promise<CheckResult> {
 
 export async function GET() {
   const checks = {
-    mongo: await checkMongo(),
+    postgres: await checkPostgres(),
     sheets: checkSheetsConfig(),
     smtp: await checkSmtp(),
   };

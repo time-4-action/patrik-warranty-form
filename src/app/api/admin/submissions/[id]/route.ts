@@ -5,7 +5,7 @@ import {
   findWarrantyBySubmissionId,
   updateWarrantyWorkflow,
   type WorkflowPatch,
-} from "@/lib/warranty-mongo";
+} from "@/lib/warranty-store";
 import {
   CUSTOMER_STATUSES,
   FACTORY_STATUSES,
