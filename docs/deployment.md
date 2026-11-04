@@ -69,7 +69,7 @@ affected (environment secrets win over organization secrets of the same name):
 |---|---|
 | secret `PROD_DEPLOY_HOST` | `77.42.42.60` |
 | secret `PROD_DEPLOY_SSH_KEY` | the private key `github-actions@patrik-warranty-form` (its public half is in `/home/deploy/.ssh/authorized_keys` on t4a) |
-| secret `PROD_DEPLOY_FINGERPRINT` | t4a's host key, `SHA256:S+imWrvzhXtRs0U3VJwAondh5XNv7u8Gw6Sxwcv7HtM` |
+| secret `PROD_DEPLOY_FINGERPRINT` | t4a's **ECDSA** host key, `SHA256:2wkXWs0QETKFiXKXbxbJRASeNd9I6zigPKVQGBtwfTk` (`ssh-keygen -lf /etc/ssh/ssh_host_ecdsa_key.pub`; the deploy action checks the ECDSA key, so the ED25519 fingerprint fails with "host key fingerprint mismatch")  |
 | variable `DEPLOY_DIR` | `/srv/patrik-warranty` |
 
 Set them at the cutover, not before: from then on every production deploy goes to t4a, and the
