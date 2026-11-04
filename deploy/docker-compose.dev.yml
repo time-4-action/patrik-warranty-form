@@ -18,12 +18,12 @@ services:
       - .env
     environment:
       NODE_ENV: production
-      # Dev Mongo below, never the production cluster.
-      MONGODB_URI: mongodb://mongo:27017/patrik-dev
-      # The app fills the dev Mongo with mock claims on boot when it is empty (src/lib/dev-seed.ts).
+      # Dev Postgres below, never the production database.
+      DATABASE_URL: postgres://patrik:patrik@postgres:5432/patrik-dev
+      # The app fills the dev database with mock claims on boot when it is empty (src/lib/dev-seed.ts).
       SEED_MOCK_DATA: "true"
     depends_on:
-      mongo:
+      postgres:
         condition: service_healthy
     networks:
       - default
@@ -38,23 +38,26 @@ services:
   # Throwaway dev database, reachable only from the app (no published port). The app seeds it
   # with mock claims whenever it starts against an empty one. To reseed from scratch:
   #   docker compose down -v && docker compose up -d
-  mongo:
-    image: mongo:7.0
-    container_name: patrik-warranty-mongo-dev
-    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+  # Same major as production (Postgres 18 on t4a). The password only guards a database with no
+  # published port and mock data.
+  postgres:
+    image: postgres:18-alpine
+    container_name: patrik-warranty-postgres-dev
     environment:
-      MONGO_INITDB_DATABASE: patrik-dev
+      POSTGRES_USER: patrik
+      POSTGRES_PASSWORD: patrik
+      POSTGRES_DB: patrik-dev
     volumes:
-      - mongo-data:/data/db
+      - postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ["CMD", "pg_isready", "-U", "patrik", "-d", "patrik-dev"]
       interval: 5s
       timeout: 5s
       retries: 20
     restart: unless-stopped
 
 volumes:
-  mongo-data:
+  postgres-data:
 
 networks:
   web:

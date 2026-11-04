@@ -6,11 +6,11 @@ import type {
   WarrantySuggestion,
   WarrantyType,
 } from "@/types/warranty-settings";
-import { WARRANTY_COLLECTION, getMongoDb } from "./mongo";
-import type { WarrantyDocument } from "./warranty-mongo";
+import { getSql } from "./db";
+import { importWarrantyDocuments, type WarrantyDocument } from "./warranty-store";
 
 // Mock claims for the dev environment. Runs at boot (instrumentation.ts) only
-// when SEED_MOCK_DATA=true AND the warranty collection is empty, so it can
+// when SEED_MOCK_DATA=true AND the warranty table is empty, so it can
 // never touch a database that already holds data. Set only in
 // deploy/docker-compose.dev.yml.
 
@@ -120,9 +120,11 @@ function mockClaim(i: number): WarrantyDocument {
 }
 
 export async function seedMockDataIfEmpty(): Promise<void> {
-  const coll = (await getMongoDb()).collection(WARRANTY_COLLECTION);
-  if ((await coll.estimatedDocumentCount()) > 0) return;
+  const [{ n }] = await getSql()<{ n: number }[]>`SELECT count(*)::int AS n FROM warranty`;
+  if (n > 0) return;
   const docs = Array.from({ length: COUNT }, (_, i) => mockClaim(i));
-  await coll.insertMany(docs);
-  console.log(`[dev-seed] inserted ${docs.length} mock warranty claims`);
+  const { claims } = await importWarrantyDocuments(
+    docs as unknown as Record<string, unknown>[],
+  );
+  console.log(`[dev-seed] inserted ${claims} mock warranty claims`);
 }

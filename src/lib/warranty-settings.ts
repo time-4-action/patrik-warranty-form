@@ -1,4 +1,5 @@
-import { getMongoDb } from "./mongo";
+import type postgres from "postgres";
+import { getSql } from "./db";
 import { getNotificationsConfig } from "./notifications-config";
 import {
   ADMIN_FIELD_KEYS,
@@ -9,7 +10,6 @@ import {
   type WarrantySettings,
 } from "@/types/warranty-settings";
 
-export const SETTINGS_COLLECTION = "warranty_settings";
 const SETTINGS_DOC_ID = "default";
 
 type StoredSettings = Partial<WarrantySettings> & { _id?: string };
@@ -92,22 +92,20 @@ function mergeWithDefaults(stored: StoredSettings | null): WarrantySettings {
 }
 
 export async function getWarrantySettings(): Promise<WarrantySettings> {
-  const db = await getMongoDb();
-  const doc = await db
-    .collection<StoredSettings>(SETTINGS_COLLECTION)
-    .findOne({ _id: SETTINGS_DOC_ID });
-  return mergeWithDefaults(doc ?? null);
+  const sql = getSql();
+  const [row] = await sql<{ data: StoredSettings }[]>`
+    SELECT data FROM warranty_settings WHERE id = ${SETTINGS_DOC_ID}`;
+  return mergeWithDefaults(row?.data ?? null);
 }
 
 export async function saveWarrantySettings(
   input: WarrantySettings,
 ): Promise<WarrantySettings> {
   const next = mergeWithDefaults(input);
-  const db = await getMongoDb();
-  await db.collection<StoredSettings>(SETTINGS_COLLECTION).updateOne(
-    { _id: SETTINGS_DOC_ID },
-    { $set: next },
-    { upsert: true },
-  );
+  const sql = getSql();
+  const data = sql.json(next as unknown as postgres.JSONValue);
+  await sql`
+    INSERT INTO warranty_settings (id, data) VALUES (${SETTINGS_DOC_ID}, ${data})
+    ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`;
   return next;
 }
