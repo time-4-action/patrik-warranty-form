@@ -245,7 +245,7 @@ export async function removeClaimNote(
 export { normaliseStatus };
 
 // ----------------------------------------------------------------------------
-// Bulk import (dev seed and the one-off copy from MongoDB)
+// Bulk import (the dev seed)
 // ----------------------------------------------------------------------------
 
 // Stored in their own columns (or table), not in `data`.
@@ -257,7 +257,7 @@ const NON_PAYLOAD_KEYS = [
 const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
 
 /**
- * Inserts whole claim documents (the shape MongoDB stored) with their notes.
+ * Inserts whole claim documents (the WarrantyDocument shape) with their notes.
  * Existing claims and notes are left alone, so it is safe to run again.
  * Returns how many claims and notes were inserted. Runs in `tx` when given,
  * otherwise in its own transaction.
