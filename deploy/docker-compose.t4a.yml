@@ -5,7 +5,7 @@
 #
 # Traefik (/srv/edge) routes patrik-international.com and www here, behind Cloudflare. The old
 # warranty upload links (/warranty/wp-content/uploads/arforms/userfiles/...) and assets.* go to the
-# patrik-assets bucket, not here: /srv/edge/dynamic/patrik-assets.yml in t4a-infra.
+# t4a bucket (hel1), not here: /srv/edge/dynamic/patrik-assets.yml in t4a-infra.
 name: patrik-warranty
 
 services:
