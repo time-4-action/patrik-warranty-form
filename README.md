@@ -97,9 +97,9 @@ The bucket must allow `PUT` from your domain. A ready-made rule is committed at 
 
 ```bash
 aws s3api put-bucket-cors \
-  --bucket patrik-assets \
+  --bucket t4a \
   --cors-configuration file://cors.json \
-  --endpoint-url https://fsn1.your-objectstorage.com
+  --endpoint-url https://hel1.your-objectstorage.com
 ```
 
 ### Run
@@ -128,10 +128,10 @@ Copy `.env.local.example` to `.env`. All variables marked **required** must be s
 
 | Variable | Required | Description |
 |---|:---:|---|
-| `S3_ENDPOINT` | ✓ | e.g. `https://fsn1.your-objectstorage.com` |
-| `S3_REGION` | ✓ | e.g. `fsn1` |
+| `S3_ENDPOINT` | ✓ | e.g. `https://hel1.your-objectstorage.com` |
+| `S3_REGION` | ✓ | e.g. `hel1` |
 | `S3_BUCKET` | ✓ | Bucket name |
-| `S3_PUBLIC_BASE` | ✓ | Public base URL, e.g. `https://patrik-assets.fsn1.your-objectstorage.com` |
+| `S3_PUBLIC_BASE` | ✓ | Public base URL, `https://assets.patrik-international.com` (Traefik on t4a proxies it to the bucket) |
 | `S3_ACCESS_KEY_ID` | ✓ | Hetzner access key |
 | `S3_SECRET_ACCESS_KEY` | ✓ | Hetzner secret key |
 
