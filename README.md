@@ -142,7 +142,6 @@ Copy `.env.local.example` to `.env`. All variables marked **required** must be s
 | Variable | Required | Description |
 |---|:---:|---|
 | `DATABASE_URL` | ✓ | `postgres://user:password@host:5432/db`. Tables are created at boot (`src/lib/db.ts`). |
-| `MIGRATE_FROM_MONGODB_URI` | | Only during the move from MongoDB: copy that database at boot (see `docs/deployment.md`). |
 
 ### Google Sheets
 

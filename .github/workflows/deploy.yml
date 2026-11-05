@@ -34,7 +34,7 @@ permissions:
 env:
   IMAGE: ghcr.io/time-4-action/patrik-warranty-form
   # Host port the server's compose publishes, for the health check on the VM
-  # (deploy/docker-compose.yml on t2 and deploy/docker-compose.t4a.yml on t4a: 4000;
+  # (deploy/docker-compose.t4a.yml on t4a: 4000;
   # deploy/docker-compose.dev.yml: 13011).
   HOST_PORT: ${{ github.ref_name == 'main' && '4000' || '13011' }}
   # Overridable with the PRODUCTION_URL / DEV_URL repository variables.
