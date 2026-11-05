@@ -64,6 +64,13 @@ a shared bearer token.
 - `src/lib/admin-auth.ts` — `checkInternalAdmin(request)` asserts
   `Authorization: Bearer $INTERNAL_ADMIN_TOKEN`. Returns null on success, or a
   401/503 `Response` the caller returns as-is.
+  `checkInternalReader(request)` also accepts `Bearer $INTERNAL_READ_TOKEN` (the
+  T4A agent's read-only token) besides the admin token; it guards ONLY the GET
+  claim routes and `/api/admin/stats`. Writes and settings stay on
+  `checkInternalAdmin` (tests in `test/admin-routes.test.ts`).
+- `src/lib/warranty-stats.ts` — `getWarrantyStats({ from, to })` for
+  `/api/admin/stats`; aggregation is the pure `aggregateWarrantyStats()` over
+  normalised workflow values.
 - `src/types/warranty-settings.ts` — settings shape, status enum, field-key
   catalogues (`CUSTOMER_FIELD_KEYS`, `ADMIN_FIELD_KEYS`) + labels +
   `DEFAULT_SETTINGS`. Both this repo and the admin dashboard import the keys.
@@ -75,12 +82,14 @@ a shared bearer token.
   `statusUpdatedAt`). Admin can transition through `new → in_review → approved
   / rejected → shipped` via `PATCH /api/admin/submissions/[id]`.
 
-Routes:
+Routes (GET claim routes and stats accept the admin OR the read token; everything else needs the admin token):
 
 | Route | Methods | Purpose |
 |---|---|---|
 | `/api/admin/submissions` | GET | Paginated list with `status`, `q`, `from`, `to`, `limit`, `skip` query params. Returns `{ total, items }`. |
 | `/api/admin/submissions/[id]` | GET, PATCH | Single doc; PATCH body `{ status }` updates the status. |
+| `/api/admin/submissions/[id]/audit` | GET | Claim change history `{ entries }`. |
+| `/api/admin/stats` | GET | Counts for `from`/`to` (optional, same filter as the list): `{ total, byStatus, byWarrantyType, byAssignee, byProductCategory, byProduct (top 20), openOlderThan30d, latestSubmittedAt }`. |
 | `/api/admin/settings` | GET, PUT | Current `WarrantySettings`; PUT body replaces it (normalised + merged with defaults before save). |
 
 Email builders (`buildUserConfirmation`, `buildAdminNotification`) now take a
