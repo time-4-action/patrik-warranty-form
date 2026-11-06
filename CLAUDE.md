@@ -32,7 +32,7 @@ On submit:
 1. `crypto.randomUUID()` generates a `submissionId`
 2. Each file slot calls `POST /api/upload-url` → gets `{ presignedUrl, publicUrl }`
 3. Browser PUTs file to presigned URL
-4. Public URLs collected as `<S3_KEY_PREFIX>/<submissionId>/<slot>.<ext>` (`S3_KEY_PREFIX` defaults to `uploads/warranty`; dev uses `dev/uploads/warranty`)
+4. Public URLs collected as `<S3_KEY_PREFIX>/<submissionId>/<slot>.<ext>` (`S3_KEY_PREFIX` defaults to `uploads/warranty`)
 
 The `submissionId` groups all 4 files for one warranty claim under the same path — easy to look up later.
 
@@ -122,22 +122,22 @@ Env vars: `SMTP_HOST`, `SMTP_PORT` (465 = SSL, 587 = STARTTLS), `SMTP_USER`, `SM
 
 ## Git workflow
 
-**This form is in production.** `main` is the protected production branch — **no direct pushes**. `dev` is the active integration branch where day-to-day work lands.
+**This form is in production.** `main` is the protected production branch — **no direct pushes**.
 
 Workflow:
 
-- Branch feature/fix branches off `dev` (not `main`).
-- Open PRs into `dev`. Merging into `dev` requires **at least 1 approval**.
-- Promote to production by opening a PR from `dev` → `main` (also needs 1 approval).
-- Never push directly to `main` or `dev`.
+- Branch feature/fix branches off `main`.
+- Open PRs into `main`; merging one deploys production. Grega reviews and merges.
+- Never push directly to `main`, never force-push.
+- There is no dev server (switched off 2026-11-06). Try changes locally first.
 
-## CI/CD and dev environment
+## CI/CD
 
-`.github/workflows/deploy.yml` builds once and promotes the same image. `check` runs `npm run lint` (plus a Docker build on PRs). A push to `dev` builds `ghcr.io/time-4-action/patrik-warranty-form:<sha>` once; a push to `main` never builds, it finds the dev commit with the identical git tree whose image is tagged `:<sha>-verified` and deploys that same digest. The `deploy` job SSHes to that branch's server (`DEV_DEPLOY_*` / `PROD_DEPLOY_*` org secrets), swaps the image in the environment's `DEPLOY_DIR` (default `/data/stack/apps/patrik-international/warranty`; production on t4a: `/srv/patrik-warranty`), and rolls back unless `/api/health` on the loopback port (dev `13011`, prod `4000`) is green and `APP_VERSION` equals the image's source commit. `verify` then requires the public `/api/health` (`warranty.dev.patrik-international.com` / `patrik-international.com`) to report `status: ok` and that `version`, and only then tags the image `:<sha>-verified` + `:dev` (dev) or `:latest` (prod). Never bake environment-specific values into the image — read them at runtime. Server compose files: `deploy/docker-compose.dev.yml` (dev) and `deploy/docker-compose.t4a.yml` (production on t4a, Helsinki; where everything lives is in `docs/deployment.md`, "Production (t4a)"). The dev deploy installs `deploy/docker-compose.dev.yml` on the dev VM itself (restored on rollback), so change it only in the repo; the production compose file is copied to the server by hand.
+`.github/workflows/deploy.yml` deploys from `main` only. `check` runs `npm run lint` (plus a Docker build on PRs). A push to `main` builds `ghcr.io/time-4-action/patrik-warranty-form:<sha>`; the `deploy` job SSHes to t4a (`PROD_DEPLOY_*`, overridden on the `production` environment), swaps the image in `DEPLOY_DIR` (`/srv/patrik-warranty`), and rolls back unless `/api/health` on loopback port 4000 is green and `APP_VERSION` equals the commit. `verify` then requires the public `/api/health` on `patrik-international.com` to report `status: ok` and that `version`, and only then tags the image `:latest`. Never bake environment-specific values into the image — read them at runtime. Server compose file: `deploy/docker-compose.t4a.yml` (copied to the server by hand; where everything lives is in `docs/deployment.md`, "Production (t4a)").
 
 `src/components/MaintenanceBanner.tsx` (in the root layout) shows the notices from maintenance.time-4-action.com (`banner.json?app=warranty`, polled every minute). Only maintenances that name `warranty` reach it, never the internal ones for every t4a app.
 
-Dev runs its own throwaway Postgres (`deploy/docker-compose.dev.yml`), which the app seeds with mock claims at boot (`src/lib/dev-seed.ts`, gated by `SEED_MOCK_DATA=true` + empty `warranty` collection). Dev uses a DEV Google Sheet, `S3_KEY_PREFIX=dev/uploads/warranty`, and `MAIL_REDIRECT_TO` (in `src/lib/mail.ts`) so every email goes to one inbox instead of customers/admins. Server setup: `docs/deployment.md`.
+`src/lib/dev-seed.ts` can seed mock claims at boot (gated by `SEED_MOCK_DATA=true` + an empty `warranty` table), for a local database only. `MAIL_REDIRECT_TO` (in `src/lib/mail.ts`) sends every email to one inbox, for local testing. Never set either in production.
 
 ## Production infrastructure
 

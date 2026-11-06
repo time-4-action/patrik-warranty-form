@@ -11,7 +11,7 @@ export async function register() {
     // Schema first: a failed migration stops the server (CI then rolls back).
     const { migrate } = await import("./lib/db");
     await migrate();
-    // Dev only (set in deploy/docker-compose.dev.yml); no-op unless the
+    // Local only (set SEED_MOCK_DATA=true yourself); no-op unless the
     // warranty table is empty. A failed seed must not stop the server.
     if (process.env.SEED_MOCK_DATA === "true") {
       const { seedMockDataIfEmpty } = await import("./lib/dev-seed");

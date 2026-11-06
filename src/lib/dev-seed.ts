@@ -9,10 +9,10 @@ import type {
 import { getSql } from "./db";
 import { importWarrantyDocuments, type WarrantyDocument } from "./warranty-store";
 
-// Mock claims for the dev environment. Runs at boot (instrumentation.ts) only
+// Mock claims for a local database. Runs at boot (instrumentation.ts) only
 // when SEED_MOCK_DATA=true AND the warranty table is empty, so it can
-// never touch a database that already holds data. Set only in
-// deploy/docker-compose.dev.yml.
+// never touch a database that already holds data. Never set it in
+// production.
 
 const COUNT = 80;
 

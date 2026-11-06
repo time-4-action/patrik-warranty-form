@@ -1,6 +1,6 @@
 # Production compose for /srv/patrik-warranty on t4a (Hetzner; time-4-action/t4a-infra, servers/t4a).
 # Save it there as docker-compose.yml, next to .env. CI exports
-# APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form@sha256:<digest> (the image verified on dev);
+# APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form@sha256:<digest> (the image built from main);
 # without it this runs :latest. The server never builds; copy changes to this file by hand.
 #
 # Traefik (/srv/edge) routes patrik-international.com and www here, behind Cloudflare. The old

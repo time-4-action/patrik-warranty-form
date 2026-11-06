@@ -1,29 +1,25 @@
-# check -> image -> deploy -> verify. Build once, promote the same image.
+# check -> image -> deploy -> verify.
 #
 #   pull request  lint + a Docker build that is not pushed.
-#   push to dev   build the image ONCE, push it as :<sha>, deploy it to the dev VM by digest and
-#                 check it from outside. Only then is it tagged :<sha>-verified (and :dev).
-#   push to main  NO build. Find the dev commit with exactly main's code (same git tree, so the
-#                 dev -> main merge commit maps to the dev tip) whose image passed dev, and deploy
-#                 that same digest to production; tag it :latest once production is verified.
+#   push to main  build the image, push it as :<sha>, deploy it to production (t4a) by digest and
+#                 check it from outside. Only then is it tagged :latest.
 #
-# Production therefore runs byte-for-byte the image that was verified on dev. Code that never
-# went through dev (a direct push to main) has no verified image and fails the `image` job.
+# Pull requests go straight into main; merging one deploys production. There is no dev server
+# any more (switched off 2026-11-06).
 #
-#   dev  -> development env, DEV_DEPLOY_* secrets,  warranty.dev.patrik-international.com
-#   main -> production env,  PROD_DEPLOY_* secrets, patrik-international.com
+#   main -> production env, PROD_DEPLOY_* secrets, patrik-international.com
 #
 # The image is environment-neutral: NEXT_PUBLIC_MAPBOX_API_KEY is the same everywhere, and
 # everything that differs (GA_MEASUREMENT_ID, secrets) comes from the server's .env at runtime.
 name: ci
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
-# A newer push to the same pull request supersedes the running check. On branches runs are
-# never cancelled, only queued, so an older commit can never be deployed over a newer one.
+# A newer push to the same pull request supersedes the running check. On main runs are never
+# cancelled, only queued, so an older commit can never be deployed over a newer one.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -34,11 +30,10 @@ permissions:
 env:
   IMAGE: ghcr.io/time-4-action/patrik-warranty-form
   # Host port the server's compose publishes, for the health check on the VM
-  # (deploy/docker-compose.t4a.yml on t4a: 4000;
-  # deploy/docker-compose.dev.yml: 13011).
-  HOST_PORT: ${{ github.ref_name == 'main' && '4000' || '13011' }}
-  # Overridable with the PRODUCTION_URL / DEV_URL repository variables.
-  PUBLIC_URL: ${{ github.ref_name == 'main' && (vars.PRODUCTION_URL || 'https://patrik-international.com') || (vars.DEV_URL || 'https://warranty.dev.patrik-international.com') }}
+  # (deploy/docker-compose.t4a.yml on t4a: 4000).
+  HOST_PORT: '4000'
+  # Overridable with the PRODUCTION_URL repository variable.
+  PUBLIC_URL: ${{ vars.PRODUCTION_URL || 'https://patrik-international.com' }}
 
 jobs:
   check:
@@ -55,7 +50,7 @@ jobs:
       - run: npm run lint
 
       # Pull requests only: proves the Dockerfile and `next build` (which typechecks) work before
-      # merge. On dev the `image` job builds anyway, and main never builds.
+      # merge. On main the `image` job builds anyway.
       - if: github.event_name == 'pull_request'
         uses: docker/setup-buildx-action@v4
       - if: github.event_name == 'pull_request'
@@ -69,20 +64,17 @@ jobs:
   # was built from, which the server and the public health check must then report.
   image:
     needs: check
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
       packages: write
     outputs:
-      ref: ${{ steps.build.outputs.ref || steps.promote.outputs.ref }}
-      version: ${{ steps.build.outputs.version || steps.promote.outputs.version }}
+      ref: ${{ steps.build.outputs.ref }}
+      version: ${{ steps.build.outputs.version }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          # main looks through dev's history for the commit with the same tree.
-          fetch-depth: 0
 
       - uses: docker/setup-buildx-action@v4
 
@@ -92,18 +84,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ---- dev: build once ------------------------------------------------------------------
-
-      - if: github.ref_name == 'dev'
-        name: Check build variables
+      - name: Check build variables
         env:
           MAPBOX: ${{ vars.NEXT_PUBLIC_MAPBOX_API_KEY }}
         run: |
           # Baked into the image; the app refuses to boot without it.
           [ -n "$MAPBOX" ] || { echo "::error::repository variable NEXT_PUBLIC_MAPBOX_API_KEY is not set"; exit 1; }
 
-      - if: github.ref_name == 'dev'
-        id: buildpush
+      - id: buildpush
         uses: docker/build-push-action@v7
         with:
           push: true
@@ -116,8 +104,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - if: github.ref_name == 'dev'
-        id: build
+      - id: build
         env:
           DIGEST: ${{ steps.buildpush.outputs.digest }}
         run: |
@@ -125,85 +112,46 @@ jobs:
           echo "version=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           echo "built $IMAGE@$DIGEST from $GITHUB_SHA"
 
-      # ---- main: promote, never build -------------------------------------------------------
-
-      - if: github.ref_name == 'main'
-        id: promote
-        run: |
-          TREE=$(git rev-parse "HEAD^{tree}")
-          echo "main $GITHUB_SHA has tree $TREE; looking for a verified dev image with the same code"
-          SOURCE=""
-          for c in $(git log --format='%H %T' -n 500 origin/dev | awk -v t="$TREE" '$2 == t { print $1 }'); do
-            if docker buildx imagetools inspect "$IMAGE:$c-verified" >/dev/null 2>&1; then
-              SOURCE=$c; break
-            fi
-          done
-          if [ -z "$SOURCE" ]; then
-            echo "::error::no dev commit with main's exact code has a verified image ($IMAGE:<sha>-verified). Promote through dev: merge into dev, let it deploy green, then open dev -> main."
-            exit 1
-          fi
-          DIGEST=$(docker buildx imagetools inspect "$IMAGE:$SOURCE-verified" --format '{{json .Manifest}}' | jq -r .digest)
-          if [ -z "$DIGEST" ] || [ "$DIGEST" = null ]; then
-            echo "::error::could not read digest of $IMAGE:$SOURCE-verified"; exit 1
-          fi
-          echo "ref=$IMAGE@$DIGEST" >> "$GITHUB_OUTPUT"
-          echo "version=$SOURCE" >> "$GITHUB_OUTPUT"
-          echo "promoting $IMAGE@$DIGEST (built and verified on dev from $SOURCE)"
-
   deploy:
     needs: image
     runs-on: ubuntu-24.04
-    # The *_DEPLOY_* SSH secrets are organization secrets. GHCR needs none: the job's own
-    # GITHUB_TOKEN lets the VM pull. Each environment only accepts its own branch (repository
-    # settings); production can additionally require a reviewer to approve the deploy.
-    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    # The PROD_DEPLOY_* SSH secrets are overridden on the `production` environment (t4a,
+    # docs/deployment.md). GHCR needs none: the job's own GITHUB_TOKEN lets the VM pull. The
+    # environment only accepts main; it can additionally require a reviewer to approve the deploy.
+    environment: production
     permissions:
       contents: read
       packages: read
     concurrency:
-      group: deploy-${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      group: deploy-prod
       cancel-in-progress: false
     timeout-minutes: 30
     steps:
-      # The `main && PROD || DEV` picks below would fall through to the dev server if the
-      # production secret were empty; fail loudly instead.
+      # Fail loudly if the production secret is empty or not shared with this repository.
       - name: Check deploy secrets
         env:
-          HOST: ${{ github.ref_name == 'main' && secrets.PROD_DEPLOY_HOST || '' }}${{ github.ref_name != 'main' && secrets.DEV_DEPLOY_HOST || '' }}
+          HOST: ${{ secrets.PROD_DEPLOY_HOST }}
         run: |
-          [ -n "$HOST" ] || { echo "::error::deploy host secret for ${{ github.ref_name }} is empty or not shared with this repository"; exit 1; }
-
-      # Dev only: the dev VM's docker-compose.yml comes from the repo on every deploy, so it can
-      # never lag behind the image (a new service or env var). Production's compose stays a
-      # hand-copied file (docs/deployment.md).
-      - uses: actions/checkout@v4
-        if: github.ref_name != 'main'
-        with:
-          sparse-checkout: deploy/docker-compose.dev.yml
-          sparse-checkout-cone-mode: false
-      - name: Pack the dev compose file
-        if: github.ref_name != 'main'
-        run: echo "COMPOSE_B64=$(base64 -w0 deploy/docker-compose.dev.yml)" >> "$GITHUB_ENV"
+          [ -n "$HOST" ] || { echo "::error::PROD_DEPLOY_HOST is empty or not shared with this repository"; exit 1; }
 
       - uses: appleboy/ssh-action@v1
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMPOSE_B64: ${{ env.COMPOSE_B64 }}
         with:
-          host: ${{ github.ref_name == 'main' && secrets.PROD_DEPLOY_HOST || secrets.DEV_DEPLOY_HOST }}
+          host: ${{ secrets.PROD_DEPLOY_HOST }}
           # The SSH login on the VM; override with the DEPLOY_USER variable.
           username: ${{ vars.DEPLOY_USER || 'deploy' }}
-          key: ${{ github.ref_name == 'main' && secrets.PROD_DEPLOY_SSH_KEY || secrets.DEV_DEPLOY_SSH_KEY }}
-          fingerprint: ${{ github.ref_name == 'main' && secrets.PROD_DEPLOY_FINGERPRINT || secrets.DEV_DEPLOY_FINGERPRINT }}
+          key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.PROD_DEPLOY_FINGERPRINT }}
           timeout: 30s
           command_timeout: 15m
-          envs: GHCR_USER,GHCR_TOKEN,COMPOSE_B64
+          envs: GHCR_USER,GHCR_TOKEN
           script: |
             set -u
-            # DEPLOY_DIR: an environment variable of the `production` / `development` environment
-            # (production on t4a: /srv/patrik-warranty, docs/deployment.md).
-            cd ${{ vars.DEPLOY_DIR || '/data/stack/apps/patrik-international/warranty' }} || exit 1
+            # DEPLOY_DIR: a variable of the `production` environment (t4a: /srv/patrik-warranty,
+            # docs/deployment.md).
+            cd ${{ vars.DEPLOY_DIR || '/srv/patrik-warranty' }} || exit 1
             # Pinned by digest: exactly the image the `image` job produced, never a moved tag.
             NEW=${{ needs.image.outputs.ref }}
             VERSION=${{ needs.image.outputs.version }}
@@ -217,20 +165,6 @@ jobs:
             fi
             echo "running: ${PREV:-nothing}"
             echo "deploying: $NEW (commit $VERSION)"
-
-            # Dev: install the repo's compose file; the old one comes back on rollback.
-            COMPOSE_CHANGED=""
-            if [ -n "${COMPOSE_B64:-}" ]; then
-              echo "$COMPOSE_B64" | base64 -d > docker-compose.yml.new || exit 1
-              if cmp -s docker-compose.yml.new docker-compose.yml; then
-                rm -f docker-compose.yml.new
-              else
-                cp docker-compose.yml docker-compose.yml.prev || exit 1
-                mv docker-compose.yml.new docker-compose.yml || exit 1
-                COMPOSE_CHANGED=1
-                echo "docker-compose.yml updated from the repo (old one in docker-compose.yml.prev)"
-              fi
-            fi
 
             # /api/health pings Postgres and SMTP, so a broken .env fails here too.
             healthy() {
@@ -262,7 +196,6 @@ jobs:
               echo "pull failed, retrying"; sleep 10
             done
 
-            # On dev, `up` on the app also starts the Postgres it depends on.
             if docker compose up -d --remove-orphans $SVC && healthy && on_commit; then
               echo "healthy on $NEW"
               docker image prune -f >/dev/null 2>&1 || true
@@ -278,10 +211,6 @@ jobs:
             fi
 
             echo "rolling back to $PREV"
-            if [ -n "$COMPOSE_CHANGED" ]; then
-              mv docker-compose.yml.prev docker-compose.yml
-              echo "restored the previous docker-compose.yml"
-            fi
             export APP_IMAGE=$PREV
             if docker compose up -d $SVC && healthy; then
               echo "rolled back to $PREV"
@@ -293,7 +222,7 @@ jobs:
 
   # From outside: DNS, TLS and the proxy in front of the container the deploy job already checked
   # on loopback. The public /api/health must report the commit just deployed. Only then is the
-  # image marked as verified for this environment.
+  # image tagged :latest.
   verify:
     needs: [image, deploy]
     runs-on: ubuntu-24.04
@@ -325,13 +254,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Retags by digest; nothing is rebuilt or re-uploaded.
-      #   dev:  :<sha>-verified (what main may promote) and :dev (what dev runs now)
-      #   main: :latest (what production runs now; the server compose falls back to it)
+      # Retags by digest; nothing is rebuilt or re-uploaded. :latest is what production runs now
+      # (the server compose falls back to it).
       - name: Mark image verified
-        run: |
-          if [ "$GITHUB_REF_NAME" = main ]; then
-            docker buildx imagetools create -t "$IMAGE:latest" "$REF"
-          else
-            docker buildx imagetools create -t "$IMAGE:$VERSION-verified" -t "$IMAGE:dev" "$REF"
-          fi
+        run: docker buildx imagetools create -t "$IMAGE:latest" "$REF"
