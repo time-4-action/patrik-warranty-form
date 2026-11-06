@@ -58,7 +58,11 @@ the same name, so other repos sharing `PROD_DEPLOY_*` are not affected:
 | variable `DEPLOY_DIR` | `/srv/patrik-warranty` |
 
 `.env` holds the production secrets (`DATABASE_URL` from `sh /srv/postgres/new-app-db.sh`, S3,
-SMTP, Sheets, Sentry, `GA_MEASUREMENT_ID`, …). Never set `MAIL_REDIRECT_TO`, `S3_KEY_PREFIX` or
+SMTP, Sheets, Sentry, `GA_MEASUREMENT_ID`, `INTERNAL_ADMIN_TOKEN`, `INTERNAL_READ_TOKEN`, …).
+`INTERNAL_READ_TOKEN` is the read-only token for the T4A agent (it calls
+`http://patrik-warranty-form:3000/api/admin/...` over the `edge` network): generate it with
+`openssl rand -hex 32`, set the same value in t4a-agent's env, then `docker compose up -d` here to
+recreate the container. It only opens the GET claim routes and `/api/admin/stats`. Never set `MAIL_REDIRECT_TO`, `S3_KEY_PREFIX` or
 `SEED_MOCK_DATA` here. The production compose file is copied to the server by hand; a copy with a
 fixed `image:` tag ignores `APP_IMAGE`, and every deploy would fail its `APP_VERSION` check.
 

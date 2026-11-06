@@ -1,4 +1,4 @@
-import { checkInternalAdmin } from "@/lib/admin-auth";
+import { checkInternalAdmin, checkInternalReader } from "@/lib/admin-auth";
 import { diffClaimFields, extractAuditEnvelope } from "@/lib/audit-diff";
 import { recordAuditEntry } from "@/lib/warranty-audit";
 import {
@@ -37,7 +37,7 @@ function parseEnum<T extends string>(
 }
 
 export async function GET(request: Request, { params }: RouteParams) {
-  const denied = checkInternalAdmin(request);
+  const denied = checkInternalReader(request);
   if (denied) return denied;
   const { id } = await params;
   try {

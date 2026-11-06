@@ -1,4 +1,4 @@
-import { checkInternalAdmin } from "@/lib/admin-auth";
+import { checkInternalReader } from "@/lib/admin-auth";
 import { listAuditEntries } from "@/lib/warranty-audit";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 // Claim change history, newest first. An unknown submissionId returns an empty
 // timeline (200), not 404 — the audit list shouldn't 404 on no history.
 export async function GET(request: Request, { params }: RouteParams) {
-  const denied = checkInternalAdmin(request);
+  const denied = checkInternalReader(request);
   if (denied) return denied;
   const { id } = await params;
   try {
