@@ -1,4 +1,4 @@
-import { checkInternalAdmin } from "@/lib/admin-auth";
+import { checkInternalReader } from "@/lib/admin-auth";
 import { listWarrantySubmissions } from "@/lib/warranty-store";
 import {
   WARRANTY_STATUSES,
@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const denied = checkInternalAdmin(request);
+  const denied = checkInternalReader(request);
   if (denied) return denied;
 
   const url = new URL(request.url);

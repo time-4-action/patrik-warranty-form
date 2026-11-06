@@ -1,11 +1,11 @@
 # Production compose for /srv/patrik-warranty on t4a (Hetzner; time-4-action/t4a-infra, servers/t4a).
 # Save it there as docker-compose.yml, next to .env. CI exports
-# APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form@sha256:<digest> (the image verified on dev);
+# APP_IMAGE=ghcr.io/time-4-action/patrik-warranty-form@sha256:<digest> (the image built from main);
 # without it this runs :latest. The server never builds; copy changes to this file by hand.
 #
 # Traefik (/srv/edge) routes patrik-international.com and www here, behind Cloudflare. The old
 # warranty upload links (/warranty/wp-content/uploads/arforms/userfiles/...) and assets.* go to the
-# patrik-assets bucket, not here: /srv/edge/dynamic/patrik-assets.yml in t4a-infra.
+# t4a bucket (hel1), not here: /srv/edge/dynamic/patrik-assets.yml in t4a-infra.
 name: patrik-warranty
 
 services:
@@ -17,10 +17,8 @@ services:
     ports:
       - "127.0.0.1:4000:3000"
     # Production secrets (Sheets, S3, SMTP, Sentry, GA_MEASUREMENT_ID, ...). DATABASE_URL points at
-    # postgres:5432 with this app's own role (new-app-db.sh in t4a-infra). During the move from
-    # MongoDB, MIGRATE_FROM_MONGODB_URI (the old MONGODB_URI) makes the app copy the data at boot;
-    # docs/deployment.md, "MongoDB to Postgres". No MAIL_REDIRECT_TO, S3_KEY_PREFIX or
-    # SEED_MOCK_DATA here.
+    # postgres:5432 with this app's own role (new-app-db.sh in t4a-infra). No MAIL_REDIRECT_TO,
+    # S3_KEY_PREFIX or SEED_MOCK_DATA here.
     env_file:
       - .env
     environment:
@@ -29,8 +27,6 @@ services:
     networks:
       - edge
       - db
-      # Only for the one-off copy from MongoDB; remove with MIGRATE_FROM_MONGODB_URI.
-      - mongo
     labels:
       - traefik.enable=true
       - traefik.docker.network=edge
@@ -51,6 +47,4 @@ networks:
   edge:
     external: true
   db:
-    external: true
-  mongo:
     external: true
