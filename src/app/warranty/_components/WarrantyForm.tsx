@@ -12,6 +12,7 @@ import { SubmittingOverlay, type SubmitStage } from "./SubmittingOverlay";
 import { InfoTooltip } from "./InfoTooltip";
 import type { WarrantyPayload } from "@/types/warranty";
 import { gtagEvent } from "@/lib/gtag";
+import { flattenHdrPhoto } from "@/lib/flatten-photo";
 
 const COUNTRIES = [
     "Afghanistan",
@@ -610,7 +611,7 @@ export function WarrantyForm() {
                 if (file) {
                     setStage(slot, "active");
                     gtagEvent("warranty_file_upload_start", { slot, file_type: file.type });
-                    uploads[slot] = await uploadFile(submissionId, slot, file);
+                    uploads[slot] = await uploadFile(submissionId, slot, await flattenHdrPhoto(file));
                     setStage(slot, "done");
                     gtagEvent("warranty_file_upload_complete", { slot, file_size_kb: Math.round(file.size / 1024) });
                 }
